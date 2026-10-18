@@ -1,8 +1,8 @@
 // ¡MOJAO! Duelo de globos de agua en una platabanda de Caracas.
 // Platanus Hack 26 Caracas, Arcade Challenge.
 
-var GW = 400;
-var GH = 300;
+var GW = 800;
+var GH = 600;
 
 // DO NOT replace existing keys — they match the physical arcade cabinet wiring.
 // To add local testing shortcuts, append extra keys to any array.
@@ -69,13 +69,28 @@ Object.keys(ASSETS).forEach(function (k) { ASSETS[k] = ASSETS[k].replace(/~/g, '
 
 // SIM
 var T = {
-  move: 95, chargeMove: 0.5, cd: 2.5, cdRacha: 1.2, ball: 180, chargeMul: 1.6,
+  move: 130, chargeMove: 0.5, cd: 2.5, cdRacha: 1.2, ball: 180, chargeMul: 1.6,
   chargeScale: 1.4, chargeMax: 1, curve: 80, dashSpeed: 280, dashTime: 0.16,
   dashInv: 0.25, dashCd: 1, puddleDash: 1.3, puddleLife: 5, puddleR: 12, slide: 4,
   stun: 0.3, inv: 1, hitX: 10, hitY: 8, clash: 8, match: 60,
 };
 var COURT = { x: 11, y: 90, w: 378, h: 188 };
 var MID = 200;
+
+// PROJ: esquinas provisionales medidas sobre la original escalada a 800x600 (se reajustan con el ambient)
+var PROJ = { tl: [105, 200], tr: [695, 200], bl: [55, 492], br: [746, 492], cTop: 400, cBot: 400, sTop: 0.8, sBot: 1.1 };
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function proj(x, y) {
+  var u = (x - COURT.x) / COURT.w, v = (y - COURT.y) / COURT.h;
+  var l = lerp(PROJ.tl[0], PROJ.bl[0], v), r = lerp(PROJ.tr[0], PROJ.br[0], v), c = lerp(PROJ.cTop, PROJ.cBot, v);
+  return {
+    x: u < 0.5 ? lerp(l, c, u * 2) : lerp(c, r, (u - 0.5) * 2),
+    y: lerp(PROJ.tl[1], PROJ.bl[1], v),
+    s: lerp(PROJ.sTop, PROJ.sBot, v),
+  };
+}
 
 function newPlayer(side) {
   return {
@@ -919,7 +934,7 @@ const config = {
   type: Phaser.AUTO,
   width: GW,
   height: GH,
-  zoom: 2,
+  zoom: 1,
   pixelArt: true,
   parent: 'game-root',
   backgroundColor: '#28242a',
