@@ -491,7 +491,7 @@ var NECK = [[63, 39], [57, 44], [63, 42], [64, 41], [71, 46], [66, 40], [71, 42]
 var VIEW = { front: 0, back: 1, side: 2 };
 var SKIN = [0xc68642, 0x8d5524, 0xe0ac69, 0xf1c27d, 0x7a4a21, 0xa86b3c, 0xd89b66, 0x9b6a3c];
 var CROWD_Y = 262;
-var RES = [[220, 548, 1.3], [580, 548, 1.3]];
+var RES = [[230, 508, 1.2], [570, 508, 1.2]];
 
 function mkTex(sc, key, w, h, fn) {
   var g = sc.make.graphics({ x: 0, y: 0, add: false });
@@ -976,8 +976,8 @@ function buildResult(sc) {
   var s = sc.s, w = s.winner, g = ui(sc, sc.add.graphics().setDepth(2500));
   g.fillStyle(0x000000, 0.55).fillRect(0, 300, GW, 230);
   var who = sc.cpuSide[w] ? '¡GANÓ LA CPU!' : '¡GANA P' + (w + 1) + '!';
-  ui(sc, txt(sc, CX, 340, who, 44, w ? '#ff8f8f' : '#8fb6ff', 3000));
-  ui(sc, txt(sc, CX, 410, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 56, '#ffffff', 3000));
+  ui(sc, txt(sc, CX, 336, who, 44, w ? '#ff8f8f' : '#8fb6ff', 3000));
+  ui(sc, txt(sc, CX, 392, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 56, '#ffffff', 3000));
   sc.again = ui(sc, txt(sc, CX, 566, 'START: REVANCHA', 26, '#ffd23f', 3000));
   s.balls = [];
   if (!sc.cpuSide[w]) { sc.wins = addWin(sc.wins, String(sc.faces[w])); saveWins(sc.wins); }
