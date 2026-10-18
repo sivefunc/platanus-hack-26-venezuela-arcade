@@ -349,6 +349,106 @@ async function saveWins(w) {
 }
 
 // AUDIO
+var AU = { m: null, mus: null, nb: null, next: 0, step: 0 };
+var PENTA = [0, 3, 5, 7, 10, 12];
+var MEL = ['0..2.3..4.3.2.0.', '2..3.4..5.4.3...', '0.2.3.4.3.2.0...', '4..3.2.3.4.5.4.3.'];
+var BASS = [-24, -24, -28, -26, -24, -24, -28, -31];
+
+function actx(sc) {
+  var c = sc.sound && sc.sound.context;
+  if (!c) return null;
+  if (!AU.m) {
+    AU.m = c.createGain();
+    AU.m.gain.value = 0.55;
+    AU.m.connect(c.destination);
+    AU.mus = c.createGain();
+    AU.mus.connect(AU.m);
+  }
+  return c;
+}
+
+function tone(sc, f0, f1, dur, type, vol, delay, dest) {
+  var c = actx(sc);
+  if (!c) return;
+  var t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'square';
+  o.frequency.setValueAtTime(f0, t);
+  if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g);
+  g.connect(dest || AU.m);
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+
+function noise(sc, dur, vol, ftype, freq, delay, dest) {
+  var c = actx(sc);
+  if (!c) return;
+  if (!AU.nb) {
+    AU.nb = c.createBuffer(1, c.sampleRate, c.sampleRate);
+    var d = AU.nb.getChannelData(0);
+    for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  var t = c.currentTime + (delay || 0), src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = AU.nb;
+  f.type = ftype;
+  f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f);
+  f.connect(g);
+  g.connect(dest || AU.m);
+  src.start(t, Math.random() * 0.5);
+  src.stop(t + dur + 0.02);
+}
+
+function sfx(sc, name) {
+  try {
+    if (name === 'throw') tone(sc, 700, 220, 0.13, 'square', 0.12);
+    else if (name === 'pop') noise(sc, 0.12, 0.35, 'lowpass', 2200);
+    else if (name === 'splash') { noise(sc, 0.3, 0.3, 'lowpass', 900); noise(sc, 0.2, 0.15, 'highpass', 3000, 0.04); }
+    else if (name === 'hit') { noise(sc, 0.15, 0.4, 'lowpass', 2500); tone(sc, 140, 50, 0.3, 'sine', 0.5); noise(sc, 0.4, 0.25, 'lowpass', 700, 0.05); }
+    else if (name === 'dash') { noise(sc, 0.14, 0.2, 'highpass', 2500); tone(sc, 300, 900, 0.12, 'sawtooth', 0.05); }
+    else if (name === 'whistle') {
+      for (var i = 0; i < 2; i++) tone(sc, 2500, 2600, 0.22, 'sine', 0.18, i * 0.26);
+      tone(sc, 2450, 2550, 0.22, 'triangle', 0.08, 0);
+      tone(sc, 2450, 2550, 0.22, 'triangle', 0.08, 0.26);
+    }
+    else if (name === 'tick') tone(sc, 880, 880, 0.09, 'square', 0.12);
+    else if (name === 'racha') [523, 659, 784, 1047].forEach(function (f, k) { tone(sc, f, f, 0.1, 'square', 0.12, k * 0.07); });
+  } catch (e) { /* sin audio */ }
+}
+
+function chargeSnd(sc, p, dt) {
+  sc.chT = (sc.chT || 0) - dt;
+  if (sc.chT > 0) return;
+  sc.chT = 0.07;
+  try { tone(sc, 180 + 520 * p.charge, 200 + 520 * p.charge, 0.08, 'triangle', 0.07); } catch (e) { /* sin audio */ }
+}
+
+function musicStep(sc) {
+  var c = actx(sc);
+  if (!c || c.state !== 'running') return;
+  var quiet = sc.phase === 'result';
+  AU.mus.gain.setTargetAtTime(quiet ? 0.3 : 1, c.currentTime, 0.3);
+  if (AU.next < c.currentTime) AU.next = c.currentTime + 0.05;
+  while (AU.next < c.currentTime + 0.2) {
+    var st = AU.step % 16, bar = (AU.step / 16 | 0) % 8, dl = AU.next - c.currentTime, d = AU.mus;
+    if (st === 0 || st === 7 || st === 10) tone(sc, 130, 38, 0.2, 'sine', 0.55, dl, d);
+    if (st === 4 || st === 12) noise(sc, 0.12, 0.28, 'bandpass', 1800, dl, d);
+    if (st === 14 || st === 3) noise(sc, 0.05, 0.1, 'bandpass', 2600, dl, d);
+    if (st % 2 === 0) noise(sc, 0.03, 0.06, 'highpass', 6000, dl, d);
+    if (st % 4 === 0 || st === 10) tone(sc, 440 * Math.pow(2, BASS[bar] / 12), null, 0.2, 'triangle', 0.22, dl, d);
+    var ch = MEL[bar % 4][st];
+    if (ch !== '.') {
+      tone(sc, 440 * Math.pow(2, (PENTA[+ch] + [0, 0, -4, -2][bar % 4]) / 12), null, 0.11, 'square', 0.05, dl, d);
+    }
+    AU.next += 0.125;
+    AU.step++;
+  }
+}
+
 
 // DRAW
 var BALL_COLORS = [0xff4d6d, 0xffd23f, 0x3bceac, 0x4da3ff, 0xb86bff];
@@ -613,20 +713,22 @@ function onEvents(sc, evs) {
   var s = sc.s;
   for (var i = 0; i < evs.length; i++) {
     var e = evs[i];
-    if (e.k === 'throw') sc.throwT[e.p] = 0.3;
-    else if (e.k === 'burst') splash(sc, clamp(e.x, COURT.x, COURT.x + COURT.w), clamp(e.y, COURT.y, COURT.y + COURT.h), 8, false);
-    else if (e.k === 'clash') { splash(sc, e.x, e.y, 22, true); popText(sc, e.x, e.y - 14, '¡CHOQUE!', '#ffffff', 10); }
+    if (e.k === 'throw') { sc.throwT[e.p] = 0.3; sfx(sc, 'throw'); }
+    else if (e.k === 'burst') { sfx(sc, 'pop'); splash(sc, clamp(e.x, COURT.x, COURT.x + COURT.w), clamp(e.y, COURT.y, COURT.y + COURT.h), 8, false); }
+    else if (e.k === 'clash') { sfx(sc, 'pop'); sfx(sc, 'splash'); splash(sc, e.x, e.y, 22, true); popText(sc, e.x, e.y - 14, '¡CHOQUE!', '#ffffff', 10); }
     else if (e.k === 'hit') {
       var v = s.p[e.v];
+      sfx(sc, 'hit');
       sc.wetT[e.v] = T.inv;
       splash(sc, v.x, v.y, 26, true);
       popText(sc, v.x, v.y - 40, '¡MOJAO!', '#8fd3ff', 14);
       sc.ref.setFrame(2).setFlipX(e.p === 0);
       sc.refT = 1;
       sc.strips.forEach(function (im, j) { sc.tweens.add({ targets: im, y: 46, duration: 120, yoyo: true, delay: j * 20 }); });
-    } else if (e.k === 'racha') popText(sc, s.p[e.p].x, s.p[e.p].y - 50, '¡EN RACHA!', '#ff9a3c', 12);
-    else if (e.k === 'dash') { var d = s.p[e.p]; splash(sc, d.x, d.y, 5, false); }
-    else if (e.k === 'sd') popText(sc, MID, 170, '¡MUERTE SÚBITA!', '#ffd23f', 16);
+    } else if (e.k === 'racha') { sfx(sc, 'racha'); popText(sc, s.p[e.p].x, s.p[e.p].y - 50, '¡EN RACHA!', '#ff9a3c', 12); }
+    else if (e.k === 'dash') { var d = s.p[e.p]; sfx(sc, 'dash'); splash(sc, d.x, d.y, 5, false); }
+    else if (e.k === 'sd') { sfx(sc, 'whistle'); popText(sc, MID, 170, '¡MUERTE SÚBITA!', '#ffd23f', 16); }
+    else if (e.k === 'end') { sfx(sc, 'whistle'); sc.ref.setFrame(1); sc.refT = 1; }
   }
 }
 
@@ -760,6 +862,7 @@ function countStep(sc, dt) {
   var n = Math.floor(sc.pt);
   if (n !== sc.lastCnt && n < 3) {
     sc.lastCnt = n;
+    sfx(sc, 'tick');
     var t = txt(sc, MID, 170, String(3 - n), 44, '#ffd23f');
     sc.tweens.add({ targets: t, scale: 1.6, alpha: 0, duration: 900, onComplete: function () { t.destroy(); } });
   }
@@ -767,6 +870,7 @@ function countStep(sc, dt) {
     var a = txt(sc, MID, 170, '¡AGUA!', 40, '#8fd3ff');
     sc.tweens.add({ targets: a, scale: 1.5, alpha: 0, duration: 1000, onComplete: function () { a.destroy(); } });
     sc.ref.setFrame(1); sc.refT = 0.8;
+    sfx(sc, 'whistle');
     sc.phase = 'play';
   }
 }
@@ -843,6 +947,8 @@ function create() {
   document.addEventListener('keydown', function (e) {
     var c = KEYBOARD_TO_ARCADE[normalizeIncomingKey(e.key)];
     if (!c) return;
+    var ac = sc.sound && sc.sound.context;
+    if (ac && ac.state === 'suspended') ac.resume();
     if (!sc.held[c]) sc.edge[c] = true;
     sc.held[c] = true;
   });
@@ -869,6 +975,8 @@ function update(time, delta) {
   sc.t += dt;
   var n = sc.speed || 1;
   for (var i = 0; i < n; i++) { flowStep(sc, n > 1 ? 1 / 60 : dt); if (i + 1 < n) sc.edge = {}; }
+  if (sc.phase === 'play') for (var q = 0; q < 2; q++) if (sc.s.p[q].charging) chargeSnd(sc, sc.s.p[q], dt);
+  musicStep(sc);
   render(sc, dt);
   sc.edge = {};
 }
