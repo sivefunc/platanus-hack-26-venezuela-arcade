@@ -83,10 +83,25 @@ function stepMatch(s, inputs, dt) {
 }
 
 function stepOnce(s, inputs, dt) {
+  if (s.over) return;
   for (var i = 0; i < 2; i++) stepPlayer(s, s.p[i], inputs[i], dt);
   stepBalls(s, dt);
+  if (!s.sd && !s.over) {
+    s.time = Math.max(0, s.time - dt);
+    if (s.time === 0) {
+      var d = s.p[0].score - s.p[1].score;
+      if (d) endMatch(s, d > 0 ? 0 : 1);
+      else { s.sd = true; s.ev.push({ k: 'sd' }); }
+    }
+  }
   for (var j = 0; j < s.puddles.length; j++) s.puddles[j].life -= dt;
   s.puddles = s.puddles.filter(function (q) { return q.life > 0; });
+}
+
+function endMatch(s, w) {
+  s.over = true;
+  s.winner = w;
+  s.ev.push({ k: 'end', winner: w });
 }
 
 function onPuddle(s, p) {
@@ -194,6 +209,7 @@ function stepBalls(s, dt) {
       addPuddle(s, c.x, c.y);
       s.ev.push({ k: 'hit', p: c.o, v: r.side });
       if (o.streak === 2) s.ev.push({ k: 'racha', p: c.o });
+      if (s.sd && !s.over) endMatch(s, c.o);
       continue;
     }
     if (c.y < COURT.y || c.y > COURT.y + COURT.h || c.x < COURT.x || c.x > COURT.x + COURT.w) {
