@@ -62,7 +62,7 @@ var MID = 200;
 function newPlayer(side) {
   return {
     side: side, x: side ? COURT.x + COURT.w - 40 : COURT.x + 40, y: COURT.y + COURT.h / 2,
-    vx: 0, vy: 0, cd: 0, charging: false, charge: 0, dashT: 0, dashCd: 0,
+    vx: 0, vy: 0, cd: 0, charging: false, charge: 0, dashT: 0, dashCd: 0, dashX: 0, dashY: 0, dashMul: 1,
     inv: 0, stun: 0, streak: 0, score: 0, pa: false, pb: false,
   };
 }
@@ -85,26 +85,58 @@ function stepMatch(s, inputs, dt) {
 function stepOnce(s, inputs, dt) {
   for (var i = 0; i < 2; i++) stepPlayer(s, s.p[i], inputs[i], dt);
   stepBalls(s, dt);
+  for (var j = 0; j < s.puddles.length; j++) s.puddles[j].life -= dt;
+  s.puddles = s.puddles.filter(function (q) { return q.life > 0; });
+}
+
+function onPuddle(s, p) {
+  for (var i = 0; i < s.puddles.length; i++) {
+    var q = s.puddles[i];
+    if (Math.hypot(q.x - p.x, q.y - p.y) < q.r) return true;
+  }
+  return false;
 }
 
 function stepPlayer(s, p, inp, dt) {
   p.cd = Math.max(0, p.cd - dt);
+  p.dashCd = Math.max(0, p.dashCd - dt);
   p.inv = Math.max(0, p.inv - dt);
   p.stun = Math.max(0, p.stun - dt);
-  var aEdge = inp.a && !p.pa;
+  var aEdge = inp.a && !p.pa, bEdge = inp.b && !p.pb;
   p.pa = inp.a;
   p.pb = inp.b;
   var ix = inp.x, iy = inp.y;
-  if (p.stun > 0) { ix = iy = 0; aEdge = false; }
-  if (aEdge && p.cd <= 0) { p.charging = true; p.charge = 0; }
+  if (p.stun > 0) { ix = iy = 0; aEdge = bEdge = false; }
+  var len = ix && iy ? Math.SQRT1_2 : 1;
+  var wet = onPuddle(s, p);
+  if (bEdge && p.dashCd <= 0 && p.dashT <= 0 && (ix || iy)) {
+    p.dashT = T.dashTime;
+    p.dashCd = T.dashCd;
+    p.inv = Math.max(p.inv, T.dashInv);
+    p.dashX = ix * len;
+    p.dashY = iy * len;
+    p.dashMul = wet ? T.puddleDash : 1;
+    p.charging = false;
+    p.charge = 0;
+    s.ev.push({ k: 'dash', p: p.side });
+  }
+  if (aEdge && p.cd <= 0 && p.dashT <= 0) { p.charging = true; p.charge = 0; }
   if (p.charging) {
     if (inp.a) p.charge = Math.min(T.chargeMax, p.charge + dt);
     else throwBalloon(s, p, inp.y);
   }
-  var len = ix && iy ? Math.SQRT1_2 : 1;
-  var sp = T.move * (p.charging ? T.chargeMove : 1) * len;
-  p.vx = ix * sp;
-  p.vy = iy * sp;
+  if (p.dashT > 0) {
+    var st = Math.min(dt, p.dashT), ds = T.dashSpeed * p.dashMul;
+    p.vx = p.dashX * ds;
+    p.vy = p.dashY * ds;
+    p.dashT -= st;
+    dt = st;
+  } else {
+    var sp = T.move * (p.charging ? T.chargeMove : 1) * len;
+    var k = wet ? Math.exp(-T.slide * dt) : 0;
+    p.vx = ix * sp + (p.vx - ix * sp) * k;
+    p.vy = iy * sp + (p.vy - iy * sp) * k;
+  }
   var lo = p.side ? MID + 12 : COURT.x + 10, hi = p.side ? COURT.x + COURT.w - 10 : MID - 12;
   p.x = clamp(p.x + p.vx * dt, lo, hi);
   p.y = clamp(p.y + p.vy * dt, COURT.y + 10, COURT.y + COURT.h - 6);
@@ -116,7 +148,7 @@ function throwBalloon(s, p, iy) {
     o: p.side, x: p.x + dir * 12, y: p.y, vx: dir * T.ball * (1 + (T.chargeMul - 1) * c),
     vy: 0, ay: Math.sign(iy) * T.curve, big: big,
   });
-  p.cd = T.cd;
+  p.cd = p.streak >= 2 ? T.cdRacha : T.cd;
   p.charging = false;
   p.charge = 0;
   s.ev.push({ k: 'throw', p: p.side, charged: big });
@@ -127,15 +159,31 @@ function addPuddle(s, x, y) {
 }
 
 function stepBalls(s, dt) {
+  var bs = s.balls, i, j;
+  for (i = 0; i < bs.length; i++) {
+    bs[i].x += bs[i].vx * dt;
+    bs[i].vy += bs[i].ay * dt;
+    bs[i].y += bs[i].vy * dt;
+  }
+  for (i = 0; i < bs.length; i++) {
+    for (j = i + 1; j < bs.length; j++) {
+      var a = bs[i], b = bs[j];
+      if (a.dead || b.dead || a.o === b.o) continue;
+      if (Math.abs(a.x - b.x) < T.clash && Math.abs(a.y - b.y) < T.clash) {
+        a.dead = b.dead = true;
+        var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        addPuddle(s, mx, my);
+        s.ev.push({ k: 'clash', x: mx, y: my });
+      }
+    }
+  }
   var keep = [];
-  for (var i = 0; i < s.balls.length; i++) {
-    var b = s.balls[i];
-    b.x += b.vx * dt;
-    b.vy += b.ay * dt;
-    b.y += b.vy * dt;
-    var r = s.p[1 - b.o];
-    if (Math.abs(b.x - r.x) < T.hitX && Math.abs(b.y - r.y) < T.hitY) {
-      var o = s.p[b.o];
+  for (i = 0; i < bs.length; i++) {
+    var c = bs[i];
+    if (c.dead) continue;
+    var r = s.p[1 - c.o];
+    if (r.inv <= 0 && Math.abs(c.x - r.x) < T.hitX && Math.abs(c.y - r.y) < T.hitY) {
+      var o = s.p[c.o];
       o.score++;
       o.streak++;
       r.streak = 0;
@@ -143,16 +191,17 @@ function stepBalls(s, dt) {
       r.stun = T.stun;
       r.charging = false;
       r.charge = 0;
-      addPuddle(s, b.x, b.y);
-      s.ev.push({ k: 'hit', p: b.o, v: r.side });
+      addPuddle(s, c.x, c.y);
+      s.ev.push({ k: 'hit', p: c.o, v: r.side });
+      if (o.streak === 2) s.ev.push({ k: 'racha', p: c.o });
       continue;
     }
-    if (b.y < COURT.y || b.y > COURT.y + COURT.h || b.x < COURT.x || b.x > COURT.x + COURT.w) {
-      addPuddle(s, clamp(b.x, COURT.x, COURT.x + COURT.w), clamp(b.y, COURT.y, COURT.y + COURT.h));
-      s.ev.push({ k: 'burst', x: b.x, y: b.y });
+    if (c.y < COURT.y || c.y > COURT.y + COURT.h || c.x < COURT.x || c.x > COURT.x + COURT.w) {
+      addPuddle(s, clamp(c.x, COURT.x, COURT.x + COURT.w), clamp(c.y, COURT.y, COURT.y + COURT.h));
+      s.ev.push({ k: 'burst', x: c.x, y: c.y });
       continue;
     }
-    keep.push(b);
+    keep.push(c);
   }
   s.balls = keep;
 }
