@@ -223,8 +223,113 @@ function stepBalls(s, dt) {
 }
 
 // CPU
+var CPUT = { react: 0.2, err: 12, curveP: 0.3, holdMax: 0.8, dodgeP: 0.4, dashP: 0.5, range: 90, waitMin: 0.4, waitMax: 1.2 };
+
+function rnd(a, b) { return a + Math.random() * (b - a); }
+
+function cpuThink(s, side, mem, dt) {
+  var me = s.p[side], opp = s.p[1 - side], out = { x: 0, y: 0, a: false, b: false };
+  if (mem.sample === undefined) {
+    mem.sample = 0; mem.oy = opp.y; mem.phase = 'wait'; mem.wait = rnd(CPUT.waitMin, CPUT.waitMax);
+    mem.threat = null; mem.plan = null; mem.held = 0;
+  }
+  mem.sample -= dt;
+  if (mem.sample <= 0) { mem.sample = CPUT.react; mem.oy = opp.y; }
+  var ymin = COURT.y + 10, ymax = COURT.y + COURT.h - 6;
+
+  // incoming balloon aimed at me
+  var th = null, i;
+  for (i = 0; i < s.balls.length; i++) {
+    var b = s.balls[i], d = (me.x - b.x) * (b.vx > 0 ? 1 : -1);
+    if (b.o !== side && d > 0 && d < CPUT.range && (me.x - b.x) * b.vx > 0 && Math.abs(b.y - me.y) < 12) { th = b; break; }
+  }
+  if (!th) mem.threat = null;
+  else {
+    if (!mem.threat || mem.threat.b !== th) {
+      var dy = th.y >= me.y ? -1 : 1;
+      if (me.y + dy * 30 < ymin || me.y + dy * 30 > ymax) dy = -dy;
+      mem.threat = { b: th, t: 0, act: Math.random() < CPUT.dodgeP, dash: Math.random() < CPUT.dashP, dy: dy, dashed: false };
+    }
+    mem.threat.t += dt;
+  }
+  var tt = mem.threat;
+  if (tt && tt.act && tt.t >= CPUT.react) {
+    out.y = tt.dy;
+    if (tt.dash && !tt.dashed && me.dashCd <= 0) { out.b = true; tt.dashed = true; }
+    return out;
+  }
+
+  // attack
+  if (me.cd > 0 || me.stun > 0) { if (mem.phase !== 'wait') { mem.phase = 'wait'; mem.wait = rnd(CPUT.waitMin, CPUT.waitMax); } return out; }
+  if (mem.phase === 'wait') {
+    mem.wait -= dt;
+    if (mem.wait > 0) return out;
+    mem.plan = { err: rnd(-CPUT.err, CPUT.err), curve: Math.random() < CPUT.curveP ? (Math.random() < 0.5 ? -1 : 1) : 0, hold: rnd(0, CPUT.holdMax) };
+    mem.phase = 'aim';
+    mem.held = 0;
+  }
+  var pl = mem.plan, c = pl.hold / T.chargeMax;
+  var tm = (Math.abs(opp.x - me.x) - 24) / (T.ball * (1 + (T.chargeMul - 1) * c));
+  var ty = mem.oy + pl.err - pl.curve * 0.5 * T.curve * tm * tm;
+  if (ty < ymin || ty > ymax) { pl.curve = 0; ty = clamp(mem.oy + pl.err, ymin, ymax); }
+  var off = ty - me.y, near = Math.abs(off) < 4;
+  if (Math.abs(off) > 3) out.y = Math.sign(off);
+  if (mem.phase === 'aim') {
+    if (near) { mem.phase = 'hold'; mem.held = 0; out.a = true; }
+    return out;
+  }
+  mem.held += dt;
+  if (mem.held > dt * 2 && !me.charging) { mem.phase = 'wait'; mem.wait = rnd(CPUT.waitMin, CPUT.waitMax); return out; }
+  if (mem.held >= pl.hold && (Math.abs(off) < 6 || mem.held > pl.hold + 1)) {
+    out.a = false;
+    if (pl.curve) out.y = pl.curve;
+    mem.phase = 'wait';
+    mem.wait = rnd(CPUT.waitMin, CPUT.waitMax);
+    return out;
+  }
+  out.a = true;
+  return out;
+}
 
 // STORE
+var WINS_KEY = 'mojao/v1/wins';
+
+function sanitizeWins(v) {
+  var o = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return o;
+  Object.keys(v).forEach(function (k) {
+    var n = v[k];
+    if (typeof n === 'number' && Number.isInteger(n) && n > 0) o[k] = n;
+  });
+  return o;
+}
+
+function addWin(w, id) {
+  var o = sanitizeWins(w);
+  o[id] = (o[id] || 0) + 1;
+  return o;
+}
+
+function topFaces(w, n) {
+  return Object.keys(w).map(function (k) { return [k, w[k]]; })
+    .sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : 1); }).slice(0, n);
+}
+
+async function loadWins() {
+  try {
+    var st = window.platanusArcadeStorage;
+    if (!st) return {};
+    var r = await st.get(WINS_KEY);
+    return r && r.found ? sanitizeWins(r.value) : {};
+  } catch (e) { return {}; }
+}
+
+async function saveWins(w) {
+  try {
+    var st = window.platanusArcadeStorage;
+    if (st) await st.set(WINS_KEY, w);
+  } catch (e) { /* sin récords */ }
+}
 
 // AUDIO
 
