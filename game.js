@@ -311,6 +311,7 @@ function cpuThink(s, side, mem, dt) {
 
 // STORE
 var WINS_KEY = 'mojao/v1/wins';
+var winsReadOk = true;
 
 function sanitizeWins(v) {
   var o = {};
@@ -339,13 +340,13 @@ async function loadWins() {
     if (!st) return {};
     var r = await st.get(WINS_KEY);
     return r && r.found ? sanitizeWins(r.value) : {};
-  } catch (e) { return {}; }
+  } catch (e) { winsReadOk = false; return {}; }
 }
 
 async function saveWins(w) {
   try {
     var st = window.platanusArcadeStorage;
-    if (st) await st.set(WINS_KEY, w);
+    if (st && winsReadOk) await st.set(WINS_KEY, w);
   } catch (e) { /* sin récords */ }
 }
 
@@ -827,8 +828,8 @@ function selectStep(sc, dt) {
     if (!joined[i] && pressed(sc, P + '1')) sel.conf[i] = true;
   }
   var nh = (sc.hum[0] ? 1 : 0) + (sc.hum[1] ? 1 : 0), left = 5 - (sc.t - sel.t0);
-  if (nh === 1 && left <= 0) {
-    var o = sc.hum[0] ? 1 : 0;
+  var o = sc.hum[0] ? 1 : 0;
+  if (nh === 1 && left <= 0 && !sc.cpuSide[o]) {
     sc.cpuSide[o] = true;
     sel.cur[o] = Math.random() * 8 | 0;
     sel.conf[o] = true;
@@ -844,7 +845,7 @@ function selectStep(sc, dt) {
   for (i = 0; i < 2; i++) {
     sc.stat[i].setText('P' + (i + 1) + ': ' + (sc.cpuSide[i] ? 'CPU' : !sc.hum[i] ? 'PRESIONA START' : sel.conf[i] ? '¡LISTO!' : 'ELIGE CON A'));
   }
-  sc.cdTxt.setText(nh === 1 ? 'LA CPU ENTRA EN ' + Math.max(0, Math.ceil(left)) : '');
+  sc.cdTxt.setText(nh === 1 && !sc.cpuSide[o] ? 'LA CPU ENTRA EN ' + Math.max(0, Math.ceil(left)) : '');
   if ((sc.hum[0] || sc.cpuSide[0]) && (sc.hum[1] || sc.cpuSide[1]) && sel.conf[0] && sel.conf[1]) {
     sc.faces = [sel.cur[0], sel.cur[1]];
     setPhase(sc, 'count');
