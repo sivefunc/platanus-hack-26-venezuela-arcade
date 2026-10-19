@@ -445,6 +445,11 @@ function sfx(sc, name) {
     else if (name === 'whistle') {
       for (var i = 0; i < 2; i++) { tone(sc, 2500, 2600, 0.22, 'sine', 0.18, i * 0.26); tone(sc, 2450, 2550, 0.22, 'triangle', 0.08, i * 0.26); }
     }
+    else if (name === 'pause') tone(sc, 220, 0, 0.1, 'square', 0.12);
+    else if (name === 'resume') tone(sc, 880, 0, 0.1, 'square', 0.12);
+    else if (name === 'blip') tone(sc, 660, 0, 0.04, 'square', 0.08);
+    else if (name === 'ok') { tone(sc, 523, 0, 0.07, 'square', 0.1); tone(sc, 784, 0, 0.1, 'square', 0.1, 0.07); }
+    else if (name === 'back') { tone(sc, 784, 0, 0.07, 'square', 0.1); tone(sc, 523, 0, 0.1, 'square', 0.1, 0.07); }
     else if (name === 'tick') tone(sc, 880, 880, 0.09, 'square', 0.12);
     else if (name === 'racha') [523, 659, 784, 1047].forEach(function (f, k) { tone(sc, f, f, 0.1, 'square', 0.12, k * 0.07); });
   } catch (e) { /* sin audio */ }
@@ -535,7 +540,7 @@ function musicTick(sc, c, hz) {
 function musicStep(sc) {
   var c = actx(sc);
   if (!c || c.state !== 'running' || !SONG) return;
-  AU.mus.gain.setTargetAtTime(sc.phase === 'result' ? 0.3 : 1, c.currentTime, 0.3);
+  AU.mus.gain.setTargetAtTime(sc.phase === 'result' || sc.phase === 'pause' ? 0.3 : 1, c.currentTime, 0.3);
   if (MU.req) { startSec(c, MU.req[0], MU.req[1], c.currentTime + 0.1); MU.req = null; }
   if (MU.sec) musicTick(sc, c, c.currentTime + 0.25);
 }
@@ -1038,7 +1043,26 @@ function selectStep(sc, dt) {
   }
 }
 
+// Pausa: START durante la partida congela todo; START sigue, B vuelve al titulo sin sumar victoria
+function pauseNext(sc) { return anyPressed(sc, ['START1', 'START2']) ? 'play' : anyPressed(sc, ['P1_2', 'P2_2']) ? 'title' : null; }
+
+function pauseOn(sc) {
+  sc.phase = 'pause';
+  sc.pt = 0;
+  sfx(sc, 'pause');
+  F(ui(sc, gfx(sc).setDepth(2500)), 0, 0.6).fillRect(0, 0, GW, GH);
+  utx(sc, CX, 250, 'PAUSA', 80, '#ffd23f');
+  utx(sc, CX, 320, 'START: SEGUIR · B: SALIR', 22, '#ffffff');
+}
+
+function pauseStep(sc) {
+  var n = pauseNext(sc);
+  if (n === 'play') { clearUi(sc); sc.phase = 'play'; sfx(sc, 'resume'); }
+  else if (n) { sfx(sc, 'back'); setPhase(sc, 'title'); }
+}
+
 function playStep(sc, dt) {
+  if (anyPressed(sc, ['START1', 'START2'])) return pauseOn(sc);
   var s = sc.s, inp = [];
   for (var i = 0; i < 2; i++) inp.push(sc.cpu[i] ? cpuThink(s, i, sc.mem[i], dt) : readInput(sc, i));
   sc.inp = inp;
@@ -1115,6 +1139,7 @@ function flowStep(sc, dt) {
   else if (ph === 'select') selectStep(sc, dt);
   else if (ph === 'count') countStep(sc, dt);
   else if (ph === 'play') playStep(sc, dt);
+  else if (ph === 'pause') pauseStep(sc);
   else if (ph === 'ending') { if (sc.pt >= 1.6) setPhase(sc, 'result'); }
   else if (ph === 'result') resultStep(sc, dt);
 }
