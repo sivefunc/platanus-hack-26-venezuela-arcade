@@ -1145,7 +1145,7 @@ function titleStep(sc, dt) {
   sc.pressTxt.setVisible((sc.pt * 2 | 0) % 2 === 0);
   var j = false;
   for (var i = 0; i < 2; i++) if (anyPressed(sc, JOIN[i])) { sc.hum[i] = true; j = true; }
-  if (j) { sc.edge = {}; setPhase(sc, 'select'); }
+  if (j) { sc.edge = {}; sfx(sc, 'ok'); setPhase(sc, 'select'); }
 }
 
 function flowStep(sc, dt) {
