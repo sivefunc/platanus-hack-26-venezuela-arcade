@@ -445,9 +445,9 @@ function sfx(sc, name) {
     else if (name === 'whistle') {
       for (var i = 0; i < 2; i++) { tone(sc, 2500, 2600, 0.22, 'sine', 0.18, i * 0.26); tone(sc, 2450, 2550, 0.22, 'triangle', 0.08, i * 0.26); }
     }
-    else if (name === 'pause' || name === 'resume') tone(sc, name === 'pause' ? 220 : 880, 0, 0.1, 0, 0.12);
-    else if (name === 'blip') tone(sc, 660, 0, 0.04, 0, 0.08);
-    else if (name === 'ok' || name === 'back') for (var k = 0; k < 2; k++) tone(sc, name === 'ok' ? 523 + 261 * k : 784 - 261 * k, 0, 0.08, 0, 0.1, k * 0.07);
+    else if (name === 'pause' || name === 'resume') tone(sc, name === 'pause' ? 220 : 880, 0, 0.1, 0, 0.18);
+    else if (name === 'blip') tone(sc, 660, 0, 0.05, 0, 0.16);
+    else if (name === 'ok' || name === 'back') for (var k = 0; k < 2; k++) tone(sc, name === 'ok' ? 523 + 261 * k : 784 - 261 * k, 0, 0.08, 0, 0.18, k * 0.07);
     else if (name === 'tick') tone(sc, 880, 880, 0.09, 0, 0.12);
     else if (name === 'racha') [523, 659, 784, 1047].forEach(function (f, k) { tone(sc, f, f, 0.1, 0, 0.12, k * 0.07); });
   } catch (e) { /* sin audio */ }
