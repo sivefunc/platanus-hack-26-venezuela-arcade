@@ -94,7 +94,7 @@ var T = {
   move: 130, chargeMove: 0.5, cd: 2.5, cdRacha: 1.2, ball: 180, chargeMul: 1.6,
   chargeScale: 1.4, chargeMax: 1, curve: 80, dashSpeed: 280, dashTime: 0.16,
   dashInv: 0.25, dashCd: 1, puddleDash: 1.3, puddleLife: 5, puddleR: 12, slide: 4,
-  stun: 0.3, inv: 1, hitX: 10, hitY: 8, clash: 8, match: 60,
+  stun: 0.3, throwShow: 0.3, inv: 1, hitX: 10, hitY: 8, clash: 8, match: 60,
 };
 var COURT = { x: 11, y: 90, w: 378, h: 188 };
 var MID = 200;
@@ -119,7 +119,7 @@ function proj(x, y) {
 function newPlayer(side) {
   return {
     side: side, x: side ? COURT.x + COURT.w - 40 : COURT.x + 40, y: COURT.y + COURT.h / 2,
-    vx: 0, vy: 0, cd: 0, charging: false, charge: 0, dashT: 0, dashCd: 0, dashX: 0, dashY: 0, dashMul: 1,
+    vx: 0, vy: 0, cd: 0, throwT: 0, charging: false, charge: 0, dashT: 0, dashCd: 0, dashX: 0, dashY: 0, dashMul: 1,
     inv: 0, stun: 0, streak: 0, score: 0, pa: false, pb: false,
   };
 }
@@ -131,12 +131,14 @@ function newMatch() {
   };
 }
 
+// Hacia donde mira la cabeza: {v: 'front'|'back'|'side', flip}. El perfil base mira a la derecha; flip lo espeja (izquierda).
+// Cargando, lanzando (T.throwShow s) o en dash mira al rival: P1 sin flip, P2 con flip. Si no, manda la x del joystick, luego la y.
 function headView(p, inp) {
-  var cd = p.streak >= 2 ? T.cdRacha : T.cd;
-  if (p.charging || p.dashT > 0 || p.cd > cd - 0.3) return 'side';
-  if (inp.y < 0) return 'back';
-  if (inp.y > 0) return 'front';
-  return inp.x ? 'side' : 'front';
+  var rival = !!p.side;
+  if (p.charging || p.dashT > 0 || p.throwT > 0) return { v: 'side', flip: rival };
+  if (inp.x) return { v: 'side', flip: inp.x < 0 };
+  if (inp.y < 0) return { v: 'back', flip: rival };
+  return { v: 'front', flip: rival };
 }
 
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -179,6 +181,7 @@ function onPuddle(s, p) {
 
 function stepPlayer(s, p, inp, dt) {
   p.cd = Math.max(0, p.cd - dt);
+  p.throwT = Math.max(0, p.throwT - dt);
   p.dashCd = Math.max(0, p.dashCd - dt);
   p.inv = Math.max(0, p.inv - dt);
   p.stun = Math.max(0, p.stun - dt);
@@ -229,6 +232,7 @@ function throwBalloon(s, p, iy) {
     vy: 0, ay: Math.sign(iy) * T.curve, big: big,
   });
   p.cd = p.streak >= 2 ? T.cdRacha : T.cd;
+  p.throwT = T.throwShow;
   p.charging = false;
   p.charge = 0;
   s.ev.push({ k: 'throw', p: p.side, charged: big });
@@ -807,11 +811,13 @@ function render(sc, dt) {
       ellArc(g, X, Y, 34 * S, 11 * S, -1.5708, -1.5708 + 6.2832 * fr);
     }
     if (p.charging && sc.phase === 'play') g.lineStyle(2, p.charge >= T.chargeMax && (sc.t * 16 | 0) % 2 ? 0xffee58 : 0xffffff, 0.9).strokeEllipse(X, Y - 38 * S, (30 + 50 * p.charge) * S, (30 + 50 * p.charge) * S);
-    var fi = bodyFrame(sc, s, i, p), flip = i === 1;
+    var fi = bodyFrame(sc, s, i, p);
+    var hw = res ? { v: 'front', flip: i === 1 } : headView(p, sc.inp[i]), view = hw.v;
+    var flip = view === 'side' ? hw.flip : i === 1; // de perfil el cuerpo se espeja igual que la cabeza; si no, mira al rival
     b.setFrame(fi).setFlipX(flip).setScale(S).setPosition(Math.round(X), Math.round(Y + 4 * S)).setDepth(res ? 2600 : Y);
     var run = Math.abs(p.vx) + Math.abs(p.vy) > 8 ? Math.round(Math.sin(sc.t * 20)) * 2 * S : 0;
     var nk = NECK[fi], nx = X + ((flip ? BODY - nk[0] : nk[0]) - BODY / 2) * S, ny = Y + 4 * S - (BODY - nk[1]) * S;
-    var view = res ? 'front' : headView(p, sc.inp[i]), hf = view === 'side' && flip;
+    var hf = view === 'side' && flip;
     var ch = ASSET_META[FACES[sc.faces[i]].key].chin[VIEW[view]];
     h.setFrame(VIEW[view]).setFlipX(hf).setOrigin(hf ? 1 - ch[0] / FACE : ch[0] / FACE, ch[1] / FACE).setScale(S * 0.95).setPosition(Math.round(nx), Math.round(ny + run + HEAD_OVERLAP * S)).setDepth(res ? 2601 : Y + 0.1);
     var hd = HAND[fi], hv = sc.showAct && !res && hd;
