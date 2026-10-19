@@ -437,7 +437,7 @@ function noise(sc, dur, vol, ftype, freq, delay, dest) {
 
 function sfx(sc, name) {
   try {
-    if (name === 'throw') tone(sc, 700, 220, 0.13, 'square', 0.12);
+    if (name === 'throw') tone(sc, 700, 220, 0.13, 0, 0.12);
     else if (name === 'pop') noise(sc, 0.12, 0.35, 'lowpass', 2200);
     else if (name === 'splash') { noise(sc, 0.3, 0.3, 'lowpass', 900); noise(sc, 0.2, 0.15, 'highpass', 3000, 0.04); }
     else if (name === 'hit') { noise(sc, 0.15, 0.4, 'lowpass', 2500); tone(sc, 140, 50, 0.3, 'sine', 0.5); noise(sc, 0.4, 0.25, 'lowpass', 700, 0.05); }
@@ -445,13 +445,11 @@ function sfx(sc, name) {
     else if (name === 'whistle') {
       for (var i = 0; i < 2; i++) { tone(sc, 2500, 2600, 0.22, 'sine', 0.18, i * 0.26); tone(sc, 2450, 2550, 0.22, 'triangle', 0.08, i * 0.26); }
     }
-    else if (name === 'pause') tone(sc, 220, 0, 0.1, 'square', 0.12);
-    else if (name === 'resume') tone(sc, 880, 0, 0.1, 'square', 0.12);
-    else if (name === 'blip') tone(sc, 660, 0, 0.04, 'square', 0.08);
-    else if (name === 'ok') { tone(sc, 523, 0, 0.07, 'square', 0.1); tone(sc, 784, 0, 0.1, 'square', 0.1, 0.07); }
-    else if (name === 'back') { tone(sc, 784, 0, 0.07, 'square', 0.1); tone(sc, 523, 0, 0.1, 'square', 0.1, 0.07); }
-    else if (name === 'tick') tone(sc, 880, 880, 0.09, 'square', 0.12);
-    else if (name === 'racha') [523, 659, 784, 1047].forEach(function (f, k) { tone(sc, f, f, 0.1, 'square', 0.12, k * 0.07); });
+    else if (name === 'pause' || name === 'resume') tone(sc, name === 'pause' ? 220 : 880, 0, 0.1, 0, 0.12);
+    else if (name === 'blip') tone(sc, 660, 0, 0.04, 0, 0.08);
+    else if (name === 'ok' || name === 'back') for (var k = 0; k < 2; k++) tone(sc, name === 'ok' ? 523 + 261 * k : 784 - 261 * k, 0, 0.08, 0, 0.1, k * 0.07);
+    else if (name === 'tick') tone(sc, 880, 880, 0.09, 0, 0.12);
+    else if (name === 'racha') [523, 659, 784, 1047].forEach(function (f, k) { tone(sc, f, f, 0.1, 0, 0.12, k * 0.07); });
   } catch (e) { /* sin audio */ }
 }
 
@@ -507,7 +505,7 @@ function note(c, t, f, d, n) {
 
 // percusion con tone/noise: c clave, b cencerro, t conga abierta, s conga slap, n guiro
 function hit(sc, c, t, kind) {
-  var d = t - c.currentTime, P = { c: [2500, 0, 0.03, 'sine', 0.12], b: [800, 0, 0.06, 'square', 0.07], t: [190, 150, 0.18, 'sine', 0.35], s: [330, 0, 0.06, 'triangle', 0.25] }[kind];
+  var d = t - c.currentTime, P = { c: [2500, 0, 0.03, 'sine', 0.12], b: [800, 0, 0.06, 0, 0.07], t: [190, 150, 0.18, 'sine', 0.35], s: [330, 0, 0.06, 'triangle', 0.25] }[kind];
   if (P) tone(sc, P[0], P[1], P[2], P[3], P[4], d, AU.mus);
   else noise(sc, 0.05, 0.05, 'highpass', 5000, d, AU.mus);
 }
@@ -965,22 +963,22 @@ function buildTitle(sc) {
   sc.hum = [false, false];
   sc.cpu = [false, false];
   ui(sc, sc.add.image(CX, 126, 'logo').setScale(3.5).setDepth(3000));
-  utx(sc, CX, 252, 'PLATANUS HACK 26 · CARACAS', 16, '#ffffff');
-  sc.pressTxt = utx(sc, CX, 286, 'PRESIONA START', 30, '#ffffff');
+  utx(sc, CX, 252, 'PLATANUS HACK 26 · CARACAS', 16);
+  sc.pressTxt = utx(sc, CX, 286, 'PRESIONA START', 30);
   var g = ui(sc, gfx(sc).setDepth(2999));
   F(g, 0x000000, 0.6).fillRoundedRect(CX - 260, 318, 520, 190, 10);
   utx(sc, CX, 342, 'RANKING DE VICTORIAS', 20, '#ffd23f');
   var top = topFaces(sc.wins, FACES.length).filter(function (e) { return faceOk(e[0]); }).slice(0, 5);
-  if (!top.length) utx(sc, CX, 428, '¡SÉ EL PRIMERO EN GANAR!', 22, '#ffffff');
+  if (!top.length) utx(sc, CX, 428, '¡SÉ EL PRIMERO EN GANAR!', 22);
   top.forEach(function (e, i) {
     var x = CX + (i - (top.length - 1) / 2) * 100, f = faceById(e[0]);
     ui(sc, sc.add.image(x, 452, f.key, 4).setOrigin(0.5, 1).setScale(8 / 3).setDepth(3000));
-    utx(sc, x, 462, f.name, 13, '#ffffff');
+    utx(sc, x, 462, f.name, 13);
     utx(sc, x, 488, 'x' + e[1], 22, '#ffd23f');
   });
   ui(sc, gfx(sc).setDepth(2999)).fillStyle(0x000000, 0.65).fillRoundedRect(CX - 340, 518, 680, 74, 10);
-  utx(sc, CX, 536, 'PATROCINAN', 16, '#ffffff');
-  utx(sc, CX, 566, 'ANTHROPIC · YUMMY · CASHEA · ELEVENLABS · KAPSO · VERCEL · RENDER', 13, '#ffffff');
+  utx(sc, CX, 536, 'PATROCINAN', 16);
+  utx(sc, CX, 566, 'ANTHROPIC · YUMMY · CASHEA · ELEVENLABS · KAPSO · VERCEL · RENDER', 13);
 }
 
 function buildSelect(sc) {
@@ -993,12 +991,13 @@ function buildSelect(sc) {
     var c = selPos(i);
     F(g, 0x2a2f4d, 0.9).fillRoundedRect(c[0] - SEL_W, c[1] - SEL_H, SEL_W * 2, SEL_H * 2, 6);
     ui(sc, sc.add.image(c[0], c[1] + 38, f.key, 4).setOrigin(0.5, 1).setScale(8 / 3).setDepth(3000));
-    utx(sc, c[0], c[1] + 52, f.name, 11, '#ffffff');
+    utx(sc, c[0], c[1] + 52, f.name, 11);
   });
   sc.curG = ui(sc, gfx(sc).setDepth(3001));
   sc.stat = [utx(sc, CX - 176, 436, '', 20, '#8fb6ff'), utx(sc, CX + 176, 436, '', 20, '#ff8f8f')];
-  sc.nm = [utx(sc, CX - 176, 464, '', 22, '#ffffff'), utx(sc, CX + 176, 464, '', 22, '#ffffff')];
-  sc.cdTxt = utx(sc, CX, 504, '', 22, '#ffffff');
+  sc.nm = [utx(sc, CX - 176, 464, '', 22), utx(sc, CX + 176, 464, '', 22)];
+  hint(sc);
+  sc.cdTxt = utx(sc, CX, 504, '', 22);
 }
 
 var SEL_COLS = 5, SEL_ROWS = 2, SEL_W = 52, SEL_H = 64; // cuadricula 5x2, celdas de 104x128 px
@@ -1062,13 +1061,17 @@ function selectStep(sc, dt) {
 // Pausa: START durante la partida congela todo; START sigue, B vuelve al titulo sin sumar victoria
 function pauseNext(sc) { return anyPressed(sc, ['START1', 'START2']) ? 'play' : anyPressed(sc, ['P1_2', 'P2_2']) ? 'title' : null; }
 
+// linea de controles al pie (seleccion y pausa)
+function hint(sc) { utx(sc, CX, 574, 'A: CARGA Y LANZA · ARRIBA/ABAJO AL SOLTAR: CURVA · B + DIRECCIÓN: DASH', 13); }
+
 function pauseOn(sc) {
   sc.phase = 'pause';
   sc.pt = 0;
   sfx(sc, 'pause');
   F(ui(sc, gfx(sc).setDepth(2500)), 0, 0.6).fillRect(0, 0, GW, GH);
   utx(sc, CX, 250, 'PAUSA', 80, '#ffd23f');
-  utx(sc, CX, 320, 'START: SEGUIR · B: SALIR', 22, '#ffffff');
+  utx(sc, CX, 320, 'START: SEGUIR · B: SALIR', 22);
+  hint(sc);
 }
 
 function pauseStep(sc) {
@@ -1116,8 +1119,8 @@ function buildResult(sc) {
   sc.ref.setVisible(false); sc.refBucket.setVisible(false);
   F(g, 0x000000, 0.6).fillRect(0, 0, GW, GH);
   utx(sc, CX, 215, T0.title, 44, T0.color);
-  if (T0.sub) utx(sc, CX, 248, T0.sub, 16, '#ffffff');
-  utx(sc, CX, 284, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 50, '#ffffff');
+  if (T0.sub) utx(sc, CX, 248, T0.sub, 16);
+  utx(sc, CX, 284, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 50);
   for (var k = 0; k < 2; k++) {
     var t = ui(sc, txt(sc, L[k][0], L[k][1] + 27, FACES[sc.faces[k]].name, 20, k ? '#ff8f8f' : '#8fb6ff', 3002)), pw = t.width + 24;
     ui(sc, gfx(sc).setDepth(3001)).fillStyle(0x0d1030, 0.92).fillRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5).lineStyle(3, k ? 0xff4d4d : 0x4d8dff, 1).strokeRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5);
