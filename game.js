@@ -646,6 +646,11 @@ function splash(sc, x, y, n, big) {
   sc.rings.push({ x: x, y: y, r: 4, max: big ? 46 : 26, life: 0.35, t: 0.35 });
 }
 
+// polvo gris claro en los pies: sube un poco y se desvanece
+function dust(sc, x, y, n) {
+  for (var i = 0; i < n; i++) sc.fx.push({ x: x + rnd(-8, 8), y: y - 2, vx: rnd(-20, 20), vy: rnd(-70, -30), life: rnd(0.2, 0.35), c: 0xf2f2f2 });
+}
+
 function burstAt(sc, x, y, k) {
   sc.bursts.push({ t: 0, spr: sc.add.sprite(x, y, 'burst', 0).setOrigin(0.5, 0.8).setScale(k * 4).setDepth(y + 20) });
 }
@@ -712,7 +717,7 @@ function buildStatic(sc) {
 }
 
 function buildActors(sc) {
-  sc.body = []; sc.tag = []; sc.hb = []; sc.bspr = []; sc.pspr = []; sc.bursts = []; sc.fx = []; sc.rings = []; sc.wetT = [0, 0]; sc.throwT = [0, 0]; sc.celT = [0, 0]; sc.dropT = [0, 0];
+  sc.body = []; sc.tag = []; sc.hb = []; sc.bspr = []; sc.pspr = []; sc.bursts = []; sc.fx = []; sc.rings = []; sc.wetT = [0, 0]; sc.throwT = [0, 0]; sc.celT = [0, 0]; sc.dropT = [0, 0]; sc.dsT = [0, 0]; sc.flT = [0, 0];
   sc.inp = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
   for (var i = 0; i < 2; i++) {
     sc.body.push(sc.add.sprite(0, 0, FACES[i].key, 0).setOrigin(0.5, 1).setFlipX(i === 1));
@@ -825,7 +830,10 @@ function render(sc, dt) {
     if (hd) sc.hb[i].setScale(S * hd[2] * 3.5).setPosition(mRound(X + (flip ? -hd[0] : hd[0]) * S), mRound(Y + hd[1] * S)).setDepth(Y + 0.2).setAlpha(sc.wetT[i] > 0 ? 0 : 1);
     var drip = res && s.winner !== i, wet = sc.wetT[i] > 0 || drip, blink = sc.wetT[i] > 0 && (sc.t * 14 | 0) % 2;
     b.setAlpha(blink ? 0.35 : 1);
-    if (wet) b.setTint(0x88bbff); else b.clearTint();
+    if (sc.flT[i] > 0) b.setTintFill(0xffffff); else if (wet) b.setTint(0x88bbff); else b.clearTint();
+    sc.flT[i] -= dt;
+    sc.dsT[i] -= dt;
+    if (sc.phase === 'play' && p.stun <= 0 && mAbs(p.vx) + mAbs(p.vy) > 8 && sc.dsT[i] <= 0) { sc.dsT[i] = 0.15; dust(sc, X, Y, 2 + mRand() * 2 | 0); }
     sc.wetT[i] = mMax(0, sc.wetT[i] - dt);
     sc.throwT[i] = mMax(0, sc.throwT[i] - dt);
     sc.celT[i] = mMax(0, sc.celT[i] - dt);
@@ -835,7 +843,7 @@ function render(sc, dt) {
     }
   }
   for (i = 0; i < s.balls.length; i++) {
-    var ba = s.balls[i], bp = proj(ba.x, ba.y), sz = (ba.big ? T.chargeScale : 1) * BSCALE, lift = 22 * bp.s * PSCALE;
+    var w = 0.08 * mSin(62.8 * sc.t), ba = s.balls[i], bp = proj(ba.x, ba.y), sz = (ba.big ? T.chargeScale : 1) * BSCALE, lift = 22 * bp.s * PSCALE;
     if (!ba.spr) {
       ba.fire = s.p[ba.o].streak >= 2; ba.tr = [];
       ba.spr = sc.add.image(0, 0, ba.o ? 'balloon2' : 'balloon').setOrigin(0.5, 0.5);
@@ -844,7 +852,7 @@ function render(sc, dt) {
     ba.tr.push([bp.x, bp.y - lift]);
     if (ba.tr.length > 9) ba.tr.shift();
     F(g, 0x000000, 0.35).fillEllipse(bp.x, bp.y, 24 * bp.s * sz, 8 * bp.s * sz);
-    ba.spr.setScale(bp.s * sz * 3.5).setPosition(mRound(bp.x), mRound(bp.y - lift)).setDepth(bp.y + 12);
+    ba.spr.setScale(bp.s * sz * 3.5 * (1 + w), bp.s * sz * 3.5 * (1 - w)).setPosition(mRound(bp.x), mRound(bp.y - lift)).setDepth(bp.y + 12);
     if (ba.fire || ba.ay) {
       for (k = 0; k < ba.tr.length - 1; k++) {
         var t = ba.tr[k], a = (k + 1) / ba.tr.length;
@@ -903,13 +911,14 @@ function onEvents(sc, evs) {
       q = proj(v.x, v.y);
       sfx(sc, 'hit');
       sc.wetT[e.v] = T.inv;
+      sc.flT[e.v] = 0.08;
       splash(sc, q.x, q.y - 40 * q.s * PSCALE, 36, true); burstAt(sc, q.x, q.y - 30 * q.s * PSCALE, 1.3 * q.s * PSCALE);
       popText(sc, q.x, q.y - 130 * q.s * PSCALE, '¡MOJAO!', '#8fd3ff', 28);
       sc.refMode = 'point'; sc.refFlip = e.p === 0; sc.refT = 1;
       sc.celT[e.p] = 0.4;
       crowdJump(sc);
     } else if (e.k === 'racha') { q = proj(s.p[e.p].x, s.p[e.p].y); sfx(sc, 'racha'); crowdJump(sc); popText(sc, q.x, q.y - 140 * q.s * PSCALE, '¡EN RACHA!', '#ff9a3c', 24); }
-    else if (e.k === 'dash') { var d = s.p[e.p]; q = proj(d.x, d.y); sfx(sc, 'dash'); splash(sc, q.x, q.y, 6, false); }
+    else if (e.k === 'dash') { var d = s.p[e.p]; q = proj(d.x, d.y); sfx(sc, 'dash'); splash(sc, q.x, q.y, 6, false); dust(sc, q.x, q.y, 6); }
     else if (e.k === 'sd') { playSec(1, 1.12); sfx(sc, 'whistle'); popText(sc, CX, 340, '¡MUERTE SÚBITA!', '#ffd23f', 36); }
     else if (e.k === 'end') { sfx(sc, 'whistle'); sc.refMode = 'whistle'; sc.refT = 1; }
   }
