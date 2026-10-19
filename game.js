@@ -546,52 +546,71 @@ function addFrames(sc, key, fw, fh, n) {
   for (var i = 0; i < n; i++) t.add(i, 0, i * fw, 0, fw, fh);
 }
 
-// Reemplazos procedurales: solo se usan si falta un asset de ASSETS.
-function ensureTextures(sc) {
-  var tx = sc.textures, i;
-  [['balloon', 0x2a5bd7], ['balloon2', 0xd72a2a]].forEach(function (b) {
-    if (tx.exists(b[0])) return;
+// Globo, tobos, tanque, estallido y charcos: todo con Graphics.
+function makeTextures(sc) {
+  var k, i, a;
+  [['balloon', 0x2a5bd7, 0x0e2257], ['balloon2', 0xd72a2a, 0x5a0e0e]].forEach(function (b) {
     mkTex(sc, b[0], 28, 36, function (g) {
       g.fillStyle(b[1], 1).fillEllipse(14, 16, 24, 30);
-      g.fillStyle(0xffffff, 0.6).fillRect(8, 8, 4, 6);
+      g.lineStyle(2, b[2], 1).strokeEllipse(14, 16, 24, 30);
+      g.fillStyle(b[2], 1).fillTriangle(14, 30, 9, 36, 19, 36);
+      g.lineStyle(2, 0xffffff, 0.75);
+      ellArc(g, 14, 16, 8, 11, 3.6, 4.5);
     });
   });
-  if (!tx.exists('ambient')) {
-    mkTex(sc, 'ambient', 800, 600, function (g) {
-      g.fillStyle(0x4a8fe8, 1).fillRect(0, 0, 800, 260);
-      g.fillStyle(0x3a7d44, 1).fillTriangle(150, 260, 450, 70, 750, 260);
-      g.fillStyle(0x8a8f95, 1).fillRect(0, 262, 800, 70);
-      g.fillStyle(0x7d7a7c, 1).fillPoints([{ x: PROJ.tl[0], y: PROJ.tl[1] - 16 }, { x: PROJ.tr[0], y: PROJ.tr[1] - 16 }, { x: 800, y: 520 }, { x: 0, y: 520 }], true);
-      g.fillStyle(0xfdda5a, 1).fillRect(0, 348, 150, 94).fillRect(650, 348, 150, 94);
-      g.fillStyle(0xffffff, 1).fillRect(397, 329, 3, 182);
-      g.fillStyle(0x6b4a3a, 1).fillRect(0, 520, 800, 80);
+  [['bucket', 0x2a5bd7, 0x5f8cf0], ['bucket2', 0xd72a2a, 0xf0675f]].forEach(function (b) {
+    mkTex(sc, b[0], 64, 60, function (g) {
+      g.fillStyle(b[1], 1).fillPoints([{ x: 7, y: 18 }, { x: 57, y: 18 }, { x: 50, y: 58 }, { x: 14, y: 58 }], true);
+      g.fillStyle(b[2], 1).fillRoundedRect(4, 15, 56, 7, 3);
+      g.fillStyle(0x8fd3ff, 1).fillEllipse(32, 17, 46, 9);
+      g.fillStyle(0xff4d6d, 1).fillCircle(22, 12, 8);
+      g.fillStyle(0xffd23f, 1).fillCircle(41, 10, 8);
+      g.fillStyle(0x66dd88, 1).fillCircle(32, 6, 7);
+      g.fillStyle(0x8fd3ff, 1).fillRect(14, 17, 36, 4);
+      g.fillStyle(0xffffff, 0.5).fillRect(11, 26, 3, 24);
     });
-  }
-  if (!tx.exists('tank')) mkTex(sc, 'tank', 100, 100, function (g) { g.fillStyle(0x111111, 1).fillRoundedRect(4, 10, 82, 90, 14); g.fillStyle(0xc0a040, 1).fillRect(86, 70, 12, 6); });
-  [['bucket', 0x2a5bd7], ['bucket2', 0xd72a2a]].forEach(function (b) {
-    if (!tx.exists(b[0])) mkTex(sc, b[0], 64, 60, function (g) { g.fillStyle(b[1], 1).fillRoundedRect(6, 14, 52, 46, 6); g.fillStyle(0xff4d6d, 1).fillCircle(22, 12, 9).fillCircle(40, 10, 9); });
   });
-  if (!tx.exists('burst')) {
-    mkTex(sc, 'burst', 96 * 4, 128, function (g) {
-      for (var k = 0; k < 4; k++) g.fillStyle(0x8fd3ff, 1 - k * 0.2).fillCircle(k * 96 + 48, 64, 12 + k * 9);
-    });
-    addFrames(sc, 'burst', 96, 128, 4);
-  }
-  if (!tx.exists('puddle')) {
-    mkTex(sc, 'puddle', 160 * 3, 70, function (g) { for (var k = 0; k < 3; k++) g.fillStyle(0x4aa3df, 0.7).fillEllipse(k * 160 + 80, 35, 140, 50); });
-    addFrames(sc, 'puddle', 160, 70, 3);
-  }
-  if (!tx.exists('ref')) {
-    mkTex(sc, 'ref', 72 * 3, 104, function (g) {
-      for (var k = 0; k < 3; k++) {
-        g.fillStyle(0x2b1b10, 1).fillCircle(k * 72 + 36, 30, 14);
-        g.fillStyle(0xeeeeee, 1).fillRect(k * 72 + 22, 44, 28, 34);
-        g.fillStyle(0x222222, 1).fillRect(k * 72 + 22, 78, 28, 22);
-        if (k === 2) g.fillStyle(0xc68642, 1).fillRect(k * 72 + 50, 48, 20, 7);
+  mkTex(sc, 'tank', 100, 100, function (g) {
+    g.fillStyle(0x1a1a1a, 1).fillRoundedRect(8, 12, 76, 88, 12);
+    g.fillStyle(0x444444, 0.6).fillRect(15, 22, 5, 70);
+    g.fillStyle(0x000000, 0.4).fillRect(68, 22, 14, 74);
+    for (i = 0; i < 4; i++) {
+      g.fillStyle(0x333333, 1).fillRect(8, 34 + i * 17, 76, 4);
+      g.fillStyle(0x000000, 0.5).fillRect(8, 38 + i * 17, 76, 2);
+    }
+    g.fillStyle(0x2c2c2c, 1).fillEllipse(46, 14, 76, 20);
+    g.fillStyle(0x1a1a1a, 1).fillEllipse(46, 13, 58, 13);
+    g.fillStyle(0x3a3a3a, 1).fillCircle(46, 12, 7);
+    g.fillStyle(0xc0a040, 1).fillRect(84, 80, 12, 6).fillRect(92, 84, 5, 9);
+    g.fillStyle(0xe8d070, 1).fillRect(84, 80, 12, 2);
+  });
+  mkTex(sc, 'burst', 96 * 4, 128, function (g) {
+    for (k = 0; k < 4; k++) {
+      var cx = k * 96 + 48, n = 8 + k * 2, r = 10 + k * 12;
+      if (!k) g.fillStyle(0x8fd3ff, 1).fillCircle(cx, 64, 14).fillStyle(0xffffff, 1).fillCircle(cx - 3, 61, 5);
+      else for (i = 0; i < n; i++) {
+        a = i / n * 6.283 + k * 0.3;
+        g.fillStyle(i % 2 ? 0xffffff : 0x8fd3ff, 1).fillCircle(cx + Math.cos(a) * r, 64 + Math.sin(a) * r * 1.15, Math.max(2.5, 8 - k * 1.6));
       }
-    });
-    addFrames(sc, 'ref', 72, 104, 3);
-  }
+      if (k > 1) for (i = 0; i < 6; i++) {
+        a = i * 1.05 + 0.5;
+        g.fillStyle(0x8fd3ff, 1).fillCircle(cx + Math.cos(a) * (r + 14), 64 + Math.sin(a) * (r + 14) * 1.15, 2);
+      }
+    }
+  });
+  addFrames(sc, 'burst', 96, 128, 4);
+  mkTex(sc, 'puddle', 160 * 3, 70, function (g) {
+    for (k = 0; k < 3; k++) {
+      var cx = k * 160 + 80;
+      g.fillStyle(0x4aa3df, 0.7);
+      g.fillEllipse(cx, 35, 120 + k * 8, 40 - k * 3);
+      g.fillEllipse(cx - 34 + k * 14, 30 + k * 4, 70, 46);
+      g.fillEllipse(cx + 30 - k * 10, 40 - k * 3, 76, 36 + k * 4);
+      if (k) g.fillEllipse(cx + 8 - k * 24, 28, 50, 38);
+      g.fillStyle(0xdff3ff, 0.55).fillEllipse(cx - 18, 28, 36, 8);
+    }
+  });
+  addFrames(sc, 'puddle', 160, 70, 3);
 }
 
 function flag(g, x, y, k) {
@@ -648,27 +667,20 @@ function stripEdges(side, y) {
 // Cada zona tiene dos columnas (f = distancia desde la linea blanca, como fraccion del ancho de la franja) y empieza en y0.
 // Izquierda: el tanque tapa la mitad de atras y las cabillas el frente (y > 398). Derecha: el tobo ocupa la esquina de atras, por fuera.
 var SPONSOR_ZONES = [
-  { side: 0, cols: [{ f: 0.27, y0: 305, h: 10, items: ['sp-anthropic'] }, { f: 0.75, y0: 305, h: 9, items: ['sp-cashea', 'TXT'] }] },
-  { side: 1, cols: [{ f: 0.27, y0: 222, h: 13, items: ['sp-yummy', 'sp-elevenlabs', 'sp-kapso'] }, { f: 0.75, y0: 272, h: 13, items: ['sp-vercel', 'sp-render', 'TXT'] }] },
+  { side: 0, cols: [{ f: 0.27, y0: 305, h: 10, items: ['ANTHROPIC'] }, { f: 0.75, y0: 305, h: 9, items: ['CASHEA', 'TXT'] }] },
+  { side: 1, cols: [{ f: 0.27, y0: 222, h: 13, items: ['YUMMY', 'ELEVENLABS', 'KAPSO'] }, { f: 0.75, y0: 272, h: 13, items: ['VERCEL', 'RENDER', 'TXT'] }] },
 ];
 
 function paintSponsors(sc) {
-  var tx = sc.textures;
   SPONSOR_ZONES.forEach(function (z) {
     var rot = (z.side ? -101 : 101) * Math.PI / 180;
     z.cols.forEach(function (c) {
       var y = c.y0;
       c.items.forEach(function (k) {
-        var sc0 = c.h / 40, w, hh, o;
-        if (k !== 'TXT' && !tx.exists(k)) return;
-        var yy = y + 20, e = stripEdges(z.side, yy), kk = 0.9 + 0.3 * Math.max(0, Math.min(1, (yy - 215) / 222));
+        var tx = k === 'TXT', yy = y + 20, e = stripEdges(z.side, yy), kk = 0.9 + 0.3 * Math.max(0, Math.min(1, (yy - 215) / 222));
         var sw = Math.abs(e.o - e.i);
-        if (k === 'TXT') {
-          o = sc.add.text(0, 0, 'PLATANUS\nHACK 26', { fontFamily: FONT, fontStyle: 'bold', fontSize: '9px', color: '#141414', align: 'center' }).setOrigin(0.5);
-          w = o.width; hh = o.height; sc0 = kk;
-        } else {
-          o = sc.add.image(0, 0, k); w = o.width; hh = o.height; sc0 *= kk;
-        }
+        var o = sc.add.text(0, 0, tx ? 'PLATANUS\nHACK 26' : k, { fontFamily: FONT, fontStyle: 'bold', fontSize: tx ? '9px' : '20px', color: '#141414', align: 'center' }).setOrigin(0.5);
+        var w = o.width, hh = o.height, sc0 = (tx ? 1 : c.h / hh) * kk;
         var len = w * sc0;
         if (hh * sc0 > sw * 0.42) { sc0 = sw * 0.42 / hh; len = w * sc0; }
         var cy = y + len / 2, e2 = stripEdges(z.side, cy), sw2 = Math.abs(e2.o - e2.i);
@@ -957,8 +969,8 @@ function buildTitle(sc) {
   showActors(sc, false);
   sc.hum = [false, false];
   sc.cpuSide = [false, false];
-  if (sc.textures.exists('logo')) ui(sc, sc.add.image(CX, 150, 'logo').setScale(1.4).setDepth(3000));
-  else ui(sc, txt(sc, CX, 150, '¡MOJAO!', 72, '#ffd23f', 3000));
+  ui(sc, sc.add.text(CX, 130, '¡MOJAO!', { fontFamily: FONT, fontStyle: 'bold', fontSize: '80px', color: '#8fd3ff', stroke: '#0d1030', strokeThickness: 12 }).setOrigin(0.5).setShadow(0, 6, '#000000', 0, true, true).setDepth(3000));
+  ui(sc, txt(sc, CX, 200, 'PLATANUS HACK 26 · CARACAS', 16, '#ffffff', 3000));
   sc.pressTxt = ui(sc, txt(sc, CX, 268, 'PRESIONA START', 30, '#ffffff', 3000));
   var g = ui(sc, sc.add.graphics().setDepth(2999));
   g.fillStyle(0x000000, 0.6).fillRoundedRect(CX - 260, 318, 520, 190, 10);
@@ -974,10 +986,7 @@ function buildTitle(sc) {
   });
   ui(sc, sc.add.graphics().setDepth(2999)).fillStyle(0x000000, 0.65).fillRoundedRect(CX - 340, 518, 680, 74, 10);
   ui(sc, txt(sc, CX, 536, 'PATROCINAN', 16, '#ffffff', 3000));
-  var sp = ['sp-anthropic', 'sp-yummy', 'sp-cashea', 'sp-elevenlabs', 'sp-kapso', 'sp-vercel', 'sp-render'].filter(function (k) { return sc.textures.exists(k); });
-  var tw = 0, ims = sp.map(function (k) { var im = sc.add.image(0, 570, k).setScale(0.32).setTintFill(0xffffff).setDepth(3000); ui(sc, im); tw += im.displayWidth; return im; });
-  var gap = 18, x0 = CX - (tw + gap * (ims.length - 1)) / 2;
-  ims.forEach(function (im) { im.setX(Math.round(x0 + im.displayWidth / 2)); x0 += im.displayWidth + gap; });
+  ui(sc, txt(sc, CX, 566, 'ANTHROPIC · YUMMY · CASHEA · ELEVENLABS · KAPSO · VERCEL · RENDER', 13, '#ffffff', 3000));
 }
 
 function buildSelect(sc) {
@@ -1163,7 +1172,7 @@ function create() {
     if (c) sc.held[c] = false;
   });
   cutAtlas(sc);
-  ensureTextures(sc);
+  makeTextures(sc);
   buildStatic(sc);
   buildActors(sc);
   buildHud(sc);
