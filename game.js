@@ -690,7 +690,7 @@ function buildStatic(sc) {
 }
 
 function buildActors(sc) {
-  sc.body = []; sc.tag = []; sc.hb = []; sc.bspr = []; sc.pspr = []; sc.bursts = []; sc.fx = []; sc.rings = []; sc.wetT = [0, 0]; sc.throwT = [0, 0]; sc.dropT = [0, 0];
+  sc.body = []; sc.tag = []; sc.hb = []; sc.bspr = []; sc.pspr = []; sc.bursts = []; sc.fx = []; sc.rings = []; sc.wetT = [0, 0]; sc.throwT = [0, 0]; sc.celT = [0, 0]; sc.dropT = [0, 0];
   sc.inp = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
   for (var i = 0; i < 2; i++) {
     sc.body.push(sc.add.sprite(0, 0, FACES[i].key, 0).setOrigin(0.5, 1).setFlipX(i === 1));
@@ -737,9 +737,27 @@ function skinFrame(sc, s, i, p, hw) {
   if (p.dashT > 0) return { f: 9, flip: rival };
   if (p.charging) return { f: 8, flip: rival };
   if (sc.throwT[i] > 0) return { f: 5 + Math.min(2, (0.3 - sc.throwT[i]) / 0.1 | 0), flip: rival };
+  if (sc.celT && sc.celT[i] > 0) return { f: 11, flip: rival };
   if (hw.v === 'side') return { f: mv ? 1 + ((sc.t * 10 | 0) % 4) : 0, flip: hw.flip };
   if (hw.v === 'front') return { f: mv ? 15 + ((sc.t * 6 | 0) % 2) : 14, flip: false };
   return { f: mv ? 18 + ((sc.t * 6 | 0) % 2) : 17, flip: false };
+}
+
+// Vida del sprite sobre el cuadro f: respira en reposo (scaleY 1 a 1.03, ~1.1 Hz, P2 desfasado), rebota 2*S al correr al ritmo de los pasos y tiembla +-2 px mojado
+function poseFx(sc, i, p, f, S) {
+  var o = { sy: 1, dx: 0, dy: 0 };
+  if (f === 0 || f === 14 || f === 17) o.sy = 1 + 0.03 * (0.5 - 0.5 * Math.cos(6.2832 * 1.1 * sc.t + i * Math.PI));
+  else if (f >= 1 && f <= 4) o.dy = -2 * S * Math.abs(Math.sin(Math.PI * sc.t * 10));
+  else if (f === 15 || f === 16 || f === 18 || f === 19) o.dy = -2 * S * Math.abs(Math.sin(Math.PI * sc.t * 6));
+  if (p.stun > 0) o.dx = (sc.t * 40 | 0) % 2 ? 2 : -2;
+  return o;
+}
+
+// Arbitro: pitando alterna 0/1, en un punto alterna 1/2 y señala hacia quien anoto
+function refPose(sc) {
+  if (!(sc.refT > 0)) return { f: 0, flip: false };
+  var k = sc.t * (sc.refMode === 'point' ? 5 : 6) | 0;
+  return sc.refMode === 'point' ? { f: 1 + k % 2, flip: sc.refFlip } : { f: k % 2, flip: false };
 }
 
 function render(sc, dt) {
@@ -770,7 +788,8 @@ function render(sc, dt) {
     if (p.charging && sc.phase === 'play') g.lineStyle(2, p.charge >= T.chargeMax && (sc.t * 16 | 0) % 2 ? 0xffee58 : 0xffffff, 0.9).strokeEllipse(X, Y - 38 * S, (30 + 50 * p.charge) * S, (30 + 50 * p.charge) * S);
     var hw = res ? { v: 'front', flip: i === 1 } : headView(p, sc.inp[i]);
     var sk = skinFrame(sc, s, i, p, hw), flip = sk.flip;
-    b.setFrame(sk.f).setFlipX(flip).setScale(S).setPosition(Math.round(X), Math.round(Y)).setDepth(res ? 2600 : Y);
+    var fxp = poseFx(sc, i, p, sk.f, S);
+    b.setFrame(sk.f).setFlipX(flip).setScale(S, S * fxp.sy).setPosition(Math.round(X + fxp.dx), Math.round(Y + fxp.dy)).setDepth(res ? 2600 : Y);
     sc.tag[i].setPosition(Math.round(X), Math.round(Y - (SKH - 4) * S - 8)).setDepth(res ? 2601 : Y + 0.3).setVisible(sc.showAct && !res);
     var hd = sc.showAct && !res && (sk.f === 8 ? [-30, -95, 0.7 + 0.5 * p.charge / T.chargeMax] : sk.f === 5 ? [-40, -90, 0.7] : null);
     sc.hb[i].setVisible(!!hd);
@@ -780,6 +799,7 @@ function render(sc, dt) {
     if (wet) b.setTint(0x88bbff); else b.clearTint();
     sc.wetT[i] = Math.max(0, sc.wetT[i] - dt);
     sc.throwT[i] = Math.max(0, sc.throwT[i] - dt);
+    sc.celT[i] = Math.max(0, sc.celT[i] - dt);
     if (wet) {
       sc.dropT[i] -= dt;
       if (sc.dropT[i] <= 0) { sc.dropT[i] = 0.05; sc.fx.push({ x: X + rnd(-12, 12) * S, y: Y - 120 * S, vx: rnd(-16, 16), vy: 0, life: 0.5, c: 0x8fd3ff }); }
@@ -826,7 +846,9 @@ function render(sc, dt) {
     var u = 1 - r.t / r.life;
     f.lineStyle(3, 0xdff3ff, 1 - u).strokeEllipse(r.x, r.y - 8, 2 * (4 + r.max * u), 2 * (4 + r.max * u) * 0.45);
   }
-  if (sc.refT > 0) sc.refT -= dt; else sc.ref.setFrame(0);
+  sc.refT = Math.max(0, sc.refT - dt);
+  var rp = refPose(sc);
+  sc.ref.setFrame(rp.f).setFlipX(rp.flip);
   var h1 = sc.hud;
   h1.s1.setText(('0' + s.p[0].score).slice(-2));
   h1.s2.setText(('0' + s.p[1].score).slice(-2));
@@ -854,13 +876,13 @@ function onEvents(sc, evs) {
       sc.wetT[e.v] = T.inv;
       splash(sc, q.x, q.y - 40 * q.s * PSCALE, 36, true); burstAt(sc, q.x, q.y - 30 * q.s * PSCALE, 1.3 * q.s * PSCALE);
       popText(sc, q.x, q.y - 130 * q.s * PSCALE, '¡MOJAO!', '#8fd3ff', 28);
-      sc.ref.setFrame(2).setFlipX(e.p === 0);
-      sc.refT = 1;
+      sc.refMode = 'point'; sc.refFlip = e.p === 0; sc.refT = 1;
+      sc.celT[e.p] = 0.4;
       crowdJump(sc);
     } else if (e.k === 'racha') { q = proj(s.p[e.p].x, s.p[e.p].y); sfx(sc, 'racha'); crowdJump(sc); popText(sc, q.x, q.y - 140 * q.s * PSCALE, '¡EN RACHA!', '#ff9a3c', 24); }
     else if (e.k === 'dash') { var d = s.p[e.p]; q = proj(d.x, d.y); sfx(sc, 'dash'); splash(sc, q.x, q.y, 6, false); }
     else if (e.k === 'sd') { sfx(sc, 'whistle'); popText(sc, CX, 340, '¡MUERTE SÚBITA!', '#ffd23f', 36); }
-    else if (e.k === 'end') { sfx(sc, 'whistle'); sc.ref.setFrame(1); sc.refT = 1; }
+    else if (e.k === 'end') { sfx(sc, 'whistle'); sc.refMode = 'whistle'; sc.refT = 1; }
   }
 }
 
@@ -1014,7 +1036,7 @@ function countStep(sc, dt) {
   if (sc.pt >= 3) {
     var a = txt(sc, CX, 300, '¡AGUA!', 84, '#8fd3ff');
     sc.tweens.add({ targets: a, scale: 1.5, alpha: 0, duration: 1000, onComplete: function () { a.destroy(); } });
-    sc.ref.setFrame(1); sc.refT = 0.8;
+    sc.refMode = 'whistle'; sc.refT = 0.8;
     sfx(sc, 'whistle');
     sc.phase = 'play';
   }
