@@ -524,7 +524,9 @@ var FONT = '"Courier New", monospace';
 var SKW = 192, SKH = 144; // cuadro de una skin; el personaje mide ~136 px de alto con los pies abajo y centrados
 var PSCALE = 1.42; // jugadores (skin, sombra, anillos) respecto de la escala de perspectiva de PROJ: ~135 px adelante, ~110 atras
 var BSCALE = 1.6; // globos en vuelo (sprite, sombra, estela)
-var RES = [[230, 500, 1.4], [570, 500, 1.4]];
+// pantalla de resultado: manda quien gano, no el lado. Los pies a y=462 dejan la placa (y+14 a y+40) por encima del muro del frente y del zinc
+var RES_WIN = [270, 462, 1.35], RES_LOSE = [560, 462, 1.1];
+function resLayout(w) { return w === 0 ? [RES_WIN, RES_LOSE] : [RES_LOSE, RES_WIN]; }
 
 function mkTex(sc, key, w, h, fn) {
   var g = sc.make.graphics({ x: 0, y: 0, add: false });
@@ -732,7 +734,7 @@ function buildHud(sc) {
 // 14-16 de frente (quieto, paso A, paso B), 17-19 de espaldas. Los cuadros de accion miran al rival: P1 sin flip, P2 con flip.
 function skinFrame(sc, s, i, p, hw) {
   var rival = i === 1, mv = Math.abs(p.vx) + Math.abs(p.vy) > 8;
-  if (sc.phase === 'result') return { f: s.winner === i ? 11 + ((sc.t * 4 | 0) % 2) : 13, flip: rival };
+  if (sc.phase === 'result') return { f: s.winner === i ? 11 + ((sc.t * 4 | 0) % 2) : 13, flip: s.winner !== i };
   if (p.stun > 0) return { f: 10, flip: rival };
   if (p.dashT > 0) return { f: 9, flip: rival };
   if (p.charging) return { f: 8, flip: rival };
@@ -768,7 +770,7 @@ function render(sc, dt) {
   for (i = 0; i < s.puddles.length; i++) {
     var q = s.puddles[i], fade = Math.min(1, q.life / 1.2), pq = proj(q.x, q.y);
     if (!q.spr) { q.f = Math.random() * 3 | 0; q.spr = sc.add.image(0, 0, 'puddle', q.f).setDepth(2); sc.pspr.push(q); }
-    q.spr.setPosition(Math.round(pq.x), Math.round(pq.y)).setScale(pq.s * q.r / 10).setAlpha(0.9 * fade);
+    q.spr.setPosition(Math.round(pq.x), Math.round(pq.y)).setScale(pq.s * q.r / 10).setAlpha(0.9 * fade).setVisible(sc.phase !== 'result');
     livep[i] = 1;
   }
   sc.pspr = sc.pspr.filter(function (q) {
@@ -778,7 +780,8 @@ function render(sc, dt) {
   var res = sc.phase === 'result';
   for (i = 0; i < 2; i++) {
     var p = s.p[i], b = sc.body[i], pr = proj(p.x, p.y);
-    var X = res ? RES[i][0] : pr.x, Y = res ? RES[i][1] : pr.y, S = res ? RES[i][2] : pr.s * PSCALE, col = i ? 0xff4d4d : 0x4d8dff;
+    var RL = res ? resLayout(s.winner)[i] : null;
+    var X = res ? RL[0] : pr.x, Y = res ? RL[1] : pr.y, S = res ? RL[2] : pr.s * PSCALE, col = i ? 0xff4d4d : 0x4d8dff;
     if (sc.showAct) g.fillStyle(0x000000, 0.4).fillEllipse(X, Y, 62 * S, 18 * S);
     if (sc.phase === 'play') {
       // anillo bajo los pies (ya no hay franelilla que distinga a P1 de P2): lleno si puede lanzar, tenue mientras su globo vuela
@@ -1042,20 +1045,36 @@ function countStep(sc, dt) {
   }
 }
 
+function resultTitle(sc, s) {
+  var w = s.winner;
+  return { title: '¡GANÓ ' + FACES[sc.faces[w]].name + '!', color: w ? '#ff8f8f' : '#8fb6ff', sub: sc.cpuSide[0] || sc.cpuSide[1] ? 'P' + (sc.cpuSide[1] ? 2 : 1) + ' · CPU' : '' };
+}
+
 function buildResult(sc) {
-  var s = sc.s, w = s.winner, g = ui(sc, sc.add.graphics().setDepth(2500));
-  g.fillStyle(0x000000, 0.55).fillRect(0, 300, GW, 230);
-  var who = sc.cpuSide[w] ? '¡GANÓ LA CPU!' : '¡GANA P' + (w + 1) + '!';
-  ui(sc, txt(sc, CX, 336, who, 44, w ? '#ff8f8f' : '#8fb6ff', 3000));
-  ui(sc, txt(sc, CX, 392, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 56, '#ffffff', 3000));
-  for (var k = 0; k < 2; k++) ui(sc, txt(sc, RES[k][0], 538, FACES[sc.faces[k]].name, 22, k ? '#ff8f8f' : '#8fb6ff', 3000));
-  sc.again = ui(sc, txt(sc, CX, 570, 'START: REVANCHA', 26, '#ffd23f', 3000));
+  var s = sc.s, w = s.winner, g = ui(sc, sc.add.graphics().setDepth(2500)), T0 = resultTitle(sc, s), L = resLayout(w);
   s.balls = [];
+  sc.rings = [];
+  sc.ref.setVisible(false); sc.refBucket.setVisible(false);
+  g.fillStyle(0x000000, 0.6).fillRect(0, 0, GW, GH);
+  ui(sc, txt(sc, CX, 215, T0.title, 44, T0.color, 3000));
+  if (T0.sub) ui(sc, txt(sc, CX, 248, T0.sub, 16, '#ffffff', 3000));
+  ui(sc, txt(sc, CX, 284, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 50, '#ffffff', 3000));
+  for (var k = 0; k < 2; k++) {
+    var t = ui(sc, txt(sc, L[k][0], L[k][1] + 27, FACES[sc.faces[k]].name, 20, k ? '#ff8f8f' : '#8fb6ff', 3002)), pw = t.width + 24;
+    ui(sc, sc.add.graphics().setDepth(3001)).fillStyle(0x0d1030, 0.92).fillRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5).lineStyle(3, k ? 0xff4d4d : 0x4d8dff, 1).strokeRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5);
+  }
+  sfx(sc, 'racha'); sfx(sc, 'splash');
+  splash(sc, L[w][0], L[w][1], 40, true);
   if (!sc.cpuSide[w]) { sc.wins = addWin(sc.wins, FACES[sc.faces[w]].id); saveWins(sc.wins); }
 }
 
 function resultStep(sc, dt) {
-  sc.again.setVisible((sc.pt * 2 | 0) % 2 === 0);
+  crowdJump(sc);
+  if (sc.pt < 1) {
+    var wl = resLayout(sc.s.winner)[sc.s.winner];
+    for (var k = 0; k < 2; k++) sc.fx.push({ x: wl[0] + rnd(-90, 90), y: wl[1] - rnd(150, 260), vx: rnd(-20, 20), vy: rnd(0, 60), life: rnd(0.5, 0.9), c: Math.random() < 0.7 ? 0x8fd3ff : 0xffffff });
+    if (Math.random() < 0.15) splash(sc, wl[0] + rnd(-80, 80), wl[1] - rnd(0, 40), 8, false);
+  }
   if (sc.pt < 1) return;
   if (anyPressed(sc, ['START1', 'START2', 'P1_1', 'P2_1'])) { setPhase(sc, 'count'); return; }
   if (Object.keys(sc.edge).length) sc.pt = 1;
