@@ -353,7 +353,7 @@ function topFaces(w, n) {
     .sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : 1); }).slice(0, n);
 }
 
-// Personajes elegibles: los 10 del equipo de Platanus, una skin completa cada uno (hoja de 20 cuadros, ver skinFrame).
+// Personajes elegibles: los 10 del equipo de Platanus, una skin completa cada uno (hoja de 5 cuadros, ver skinFrame).
 // sc.faces guarda indices en este arreglo; los records se guardan por id (ids viejos '0'..'7' se ignoran al mostrar).
 var FACES = [
   { id: 'joaquin', name: 'JOAQUÍN', key: 'skin-joaquin-stephens' },
@@ -705,7 +705,7 @@ function buildActors(sc) {
     sc.tag.push(txt(sc, 0, 0, 'P' + (i + 1), 16, i ? '#ff5d6d' : '#4d9dff', 0));
     sc.hb.push(sc.add.image(0, 0, i ? 'balloon2' : 'balloon').setVisible(false));
   }
-  sc.ref = sc.add.sprite(CX, 528, 'ref', 0).setOrigin(0.5, 1).setDepth(528);
+  sc.ref = sc.add.sprite(CX, 528, 'ref', 0).setOrigin(0.5, 1).setScale(3).setDepth(528);
   sc.refT = 0;
   sc.gB = sc.add.graphics().setDepth(3);
   sc.gT = sc.add.graphics().setDepth(4);
@@ -736,28 +736,34 @@ function buildHud(sc) {
   sc.hudObjs = [g, sc.hud.p1, sc.hud.p2, sc.hud.s1, sc.hud.s2, sc.hud.tm, sc.hud.tl, sc.hud.n1, sc.hud.n2];
 }
 
-// Cuadro de la skin: 0 quieto, 1-4 correr, 5-7 lanzar, 8 cargar, 9 dash, 10 mojado, 11-12 celebrar, 13 perder (todos de lado, mirando a la derecha),
-// 14-16 de frente (quieto, paso A, paso B), 17-19 de espaldas. Los cuadros de accion miran al rival: P1 sin flip, P2 con flip.
+// Cuadro de la skin: 0 quieto de lado, 1 correr, 2 lanzar, 3 de frente, 4 de espaldas (los de lado miran a la derecha).
+// Los cuadros de accion miran al rival: P1 sin flip, P2 con flip. El resto de la animacion sale de poseFx.
 function skinFrame(sc, s, i, p, hw) {
   var rival = i === 1, mv = Math.abs(p.vx) + Math.abs(p.vy) > 8;
-  if (sc.phase === 'result') return { f: s.winner === i ? 11 + ((sc.t * 4 | 0) % 2) : 13, flip: s.winner !== i };
-  if (p.stun > 0) return { f: 10, flip: rival };
-  if (p.dashT > 0) return { f: 9, flip: rival };
-  if (p.charging) return { f: 8, flip: rival };
-  if (sc.throwT[i] > 0) return { f: 5 + Math.min(2, (0.3 - sc.throwT[i]) / 0.1 | 0), flip: rival };
-  if (sc.celT && sc.celT[i] > 0) return { f: 11, flip: rival };
-  if (hw.v === 'side') return { f: mv ? 1 + ((sc.t * 10 | 0) % 4) : 0, flip: hw.flip };
-  if (hw.v === 'front') return { f: mv ? 15 + ((sc.t * 6 | 0) % 2) : 14, flip: false };
-  return { f: mv ? 18 + ((sc.t * 6 | 0) % 2) : 17, flip: false };
+  if (sc.phase === 'result') return { f: s.winner === i ? 3 : 4, flip: false };
+  if (p.stun > 0 || p.charging) return { f: 0, flip: rival };
+  if (p.dashT > 0) return { f: 1, flip: rival };
+  if (sc.throwT[i] > 0) return { f: 2, flip: rival };
+  if (sc.celT && sc.celT[i] > 0) return { f: 3, flip: false };
+  if (hw.v === 'side') return { f: mv ? (sc.t * 8 | 0) % 2 : 0, flip: hw.flip };
+  return { f: hw.v === 'front' ? 3 : 4, flip: false };
 }
 
-// Vida del sprite sobre el cuadro f: respira en reposo (scaleY 1 a 1.03, ~1.1 Hz, P2 desfasado), rebota 2*S al correr al ritmo de los pasos y tiembla +-2 px mojado
+// Animacion por codigo sobre el cuadro f: respira en reposo (sy 1 a 1.03, ~1.1 Hz, P2 desfasado), rebota al caminar,
+// tiembla +-2 px mojado, se inclina al cargar y en dash, se estira al lanzar y salta al celebrar o ganar.
 function poseFx(sc, i, p, f, S) {
-  var o = { sy: 1, dx: 0, dy: 0 };
-  if (f === 0 || f === 14 || f === 17) o.sy = 1 + 0.03 * (0.5 - 0.5 * Math.cos(6.2832 * 1.1 * sc.t + i * Math.PI));
-  else if (f >= 1 && f <= 4) o.dy = -2 * S * Math.abs(Math.sin(Math.PI * sc.t * 10));
-  else if (f === 15 || f === 16 || f === 18 || f === 19) o.dy = -2 * S * Math.abs(Math.sin(Math.PI * sc.t * 6));
-  if (p.stun > 0 && sc.phase !== 'result') o.dx = (sc.t * 40 | 0) % 2 ? 2 : -2;
+  var o = { sx: 1, sy: 1, dx: 0, dy: 0, rot: 0 }, t = sc.t, mv = Math.abs(p.vx) + Math.abs(p.vy) > 8;
+  if (sc.phase === 'result') {
+    if (f === 3) o.dy = -6 * S * Math.abs(Math.sin(Math.PI * t * 5));
+    else o.sy = 0.96;
+  } else if (p.stun > 0) o.dx = (t * 40 | 0) % 2 ? 2 : -2;
+  else if (p.dashT > 0) { o.rot = 0.25; o.sx = 1.1; o.sy = 0.92; }
+  else if (p.charging) o.rot = -0.12;
+  else if (sc.throwT[i] > 0) o.sx = 0.3 - sc.throwT[i] < 0.08 ? 1.08 : 1;
+  else if (f === 3 && sc.celT[i] > 0) o.dy = -6 * S * Math.abs(Math.sin(Math.PI * t * 5));
+  else if (!mv) o.sy = 1 + 0.03 * (0.5 - 0.5 * Math.cos(6.2832 * 1.1 * t + i * Math.PI));
+  else if (f < 2) o.dy = -2 * S * Math.abs(Math.sin(Math.PI * t * 8));
+  else { o.dy = -2 * S * Math.abs(Math.sin(Math.PI * t * 6)); o.rot = (t * 6 | 0) % 2 ? 0.06 : -0.06; }
   return o;
 }
 
@@ -802,9 +808,9 @@ function render(sc, dt) {
     var hw = res ? { v: 'front', flip: i === 1 } : headView(p, sc.inp[i]);
     var sk = skinFrame(sc, s, i, p, hw), flip = sk.flip;
     var fxp = poseFx(sc, i, p, sk.f, S);
-    b.setFrame(sk.f).setFlipX(flip).setScale(S, S * fxp.sy).setPosition(Math.round(X + fxp.dx), Math.round(Y + fxp.dy)).setDepth(res ? 2600 : Y);
+    b.setFrame(sk.f).setFlipX(flip).setScale(S * 3 * fxp.sx, S * 3 * fxp.sy).setRotation(flip ? -fxp.rot : fxp.rot).setPosition(Math.round(X + fxp.dx), Math.round(Y + fxp.dy)).setDepth(res ? 2600 : Y);
     sc.tag[i].setPosition(Math.round(X), Math.round(Y - (SKH - 4) * S - 8)).setDepth(res ? 2601 : Y + 0.3).setVisible(sc.showAct && !res);
-    var hd = sc.showAct && !res && (sk.f === 8 ? [-30, -95, 0.7 + 0.5 * p.charge / T.chargeMax] : sk.f === 5 ? [-40, -90, 0.7] : null);
+    var hd = sc.showAct && !res && (p.charging ? [-30, -95, 0.7 + 0.5 * p.charge / T.chargeMax] : sk.f === 2 && sc.throwT[i] > 0.2 ? [-40, -90, 0.7] : null);
     sc.hb[i].setVisible(!!hd);
     if (hd) sc.hb[i].setScale(S * hd[2]).setPosition(Math.round(X + (flip ? -hd[0] : hd[0]) * S), Math.round(Y + hd[1] * S)).setDepth(Y + 0.2).setAlpha(sc.wetT[i] > 0 ? 0 : 1);
     var drip = res && s.winner !== i, wet = sc.wetT[i] > 0 || drip, blink = sc.wetT[i] > 0 && (sc.t * 14 | 0) % 2;
@@ -961,8 +967,8 @@ function buildTitle(sc) {
   if (!top.length) ui(sc, txt(sc, CX, 428, '¡SÉ EL PRIMERO EN GANAR!', 22, '#ffffff', 3000));
   top.forEach(function (e, i) {
     var x = CX + (i - (top.length - 1) / 2) * 100, f = faceById(e[0]);
-    // recorte de la cabeza del cuadro 14 (el 40 % de arriba del personaje)
-    ui(sc, sc.add.image(x, 405 + 36 * 1.15, f.key, 14).setCrop(48, 6, 96, 58).setScale(1.15).setDepth(3000));
+    // recorte de la cabeza del cuadro 3 (de frente)
+    ui(sc, sc.add.image(x, 405 + 12 * 3.45, f.key, 3).setCrop(6, 2, 32, 20).setScale(3.45).setDepth(3000));
     ui(sc, txt(sc, x, 462, f.name, 13, '#ffffff', 3000));
     ui(sc, txt(sc, x, 488, 'x' + e[1], 22, '#ffd23f', 3000));
   });
@@ -983,7 +989,7 @@ function buildSelect(sc) {
   FACES.forEach(function (f, i) {
     var c = selPos(i);
     g.fillStyle(0x2a2f4d, 0.9).fillRoundedRect(c[0] - SEL_W, c[1] - SEL_H, SEL_W * 2, SEL_H * 2, 6);
-    ui(sc, sc.add.image(c[0], c[1] + 38, f.key, 14).setOrigin(0.5, 1).setScale(0.7).setDepth(3000));
+    ui(sc, sc.add.image(c[0], c[1] + 38, f.key, 3).setOrigin(0.5, 1).setScale(2.1).setDepth(3000));
     ui(sc, txt(sc, c[0], c[1] + 52, f.name, 11, '#ffffff', 3000));
   });
   sc.curG = ui(sc, sc.add.graphics().setDepth(3001));
