@@ -751,7 +751,7 @@ function poseFx(sc, i, p, f, S) {
   if (f === 0 || f === 14 || f === 17) o.sy = 1 + 0.03 * (0.5 - 0.5 * Math.cos(6.2832 * 1.1 * sc.t + i * Math.PI));
   else if (f >= 1 && f <= 4) o.dy = -2 * S * Math.abs(Math.sin(Math.PI * sc.t * 10));
   else if (f === 15 || f === 16 || f === 18 || f === 19) o.dy = -2 * S * Math.abs(Math.sin(Math.PI * sc.t * 6));
-  if (p.stun > 0) o.dx = (sc.t * 40 | 0) % 2 ? 2 : -2;
+  if (p.stun > 0 && sc.phase !== 'result') o.dx = (sc.t * 40 | 0) % 2 ? 2 : -2;
   return o;
 }
 
@@ -762,9 +762,13 @@ function refPose(sc) {
   return sc.refMode === 'point' ? { f: 1 + k % 2, flip: sc.refFlip } : { f: k % 2, flip: false };
 }
 
+// gotas y anillos: sobre el velo del resultado (2500) y bajo los jugadores solo durante la partida
+function fxDepth(sc) { return sc.phase === 'result' ? 2700 : 900; }
+
 function render(sc, dt) {
   var s = sc.s, g = sc.gB, tg = sc.gT, f = sc.gF, i, k;
   g.clear(); tg.clear(); f.clear();
+  f.setDepth(fxDepth(sc));
   if (!s) return;
   var livep = {};
   for (i = 0; i < s.puddles.length; i++) {
