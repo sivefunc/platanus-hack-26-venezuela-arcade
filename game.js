@@ -1004,26 +1004,42 @@ function buildSelect(sc) {
 var SEL_COLS = 5, SEL_ROWS = 2, SEL_W = 52, SEL_H = 64; // cuadricula 5x2, celdas de 104x128 px
 function selPos(i) { return [CX - 2 * 108 + (i % SEL_COLS) * 108, 204 + (i / SEL_COLS | 0) * 136]; }
 
+// Ruleta de la CPU: 7 saltos al azar que frenan (~0.8 s); el ultimo es un personaje distinto del del humano y confirma
+function cpuRoll(sc, dt) {
+  var sel = sc.sel, r = sel.rl;
+  if (!r) return;
+  r.t += dt;
+  while (r.t >= r.n && sel.rl) {
+    r.k++;
+    r.n += 0.07 + 0.02 * r.k;
+    sel.cur[r.o] = mRand() * FACES.length | 0;
+    if (r.k === 7) {
+      while (sel.cur[r.o] === sel.cur[1 - r.o]) sel.cur[r.o] = mRand() * FACES.length | 0;
+      sel.conf[r.o] = true;
+      sel.rl = null;
+    }
+    sfx(sc, 'blip');
+  }
+}
+
 function selectStep(sc, dt) {
   var sel = sc.sel, i, joined = [false, false];
   for (i = 0; i < 2; i++) {
     if (!sc.hum[i] && !sc.cpu[i] && anyPressed(sc, JOIN[i])) { sc.hum[i] = true; joined[i] = true; }
-    if (!sc.hum[i] || sel.conf[i]) { if (sc.hum[i] && sel.conf[i] && !joined[i] && pressed(sc, 'P' + (i + 1) + '_2')) sel.conf[i] = false; continue; }
-    var P = 'P' + (i + 1) + '_', c = sel.cur[i] % SEL_COLS, r = sel.cur[i] / SEL_COLS | 0;
+    if (!sc.hum[i] || sel.conf[i]) { if (sc.hum[i] && sel.conf[i] && !joined[i] && pressed(sc, 'P' + (i + 1) + '_2')) { sel.conf[i] = false; sfx(sc, 'back'); } continue; }
+    var P = 'P' + (i + 1) + '_', c = sel.cur[i] % SEL_COLS, r = sel.cur[i] / SEL_COLS | 0, was = sel.cur[i];
     if (pressed(sc, P + 'L')) c = (c + SEL_COLS - 1) % SEL_COLS;
     if (pressed(sc, P + 'R')) c = (c + 1) % SEL_COLS;
     if (pressed(sc, P + 'U')) r = (r + SEL_ROWS - 1) % SEL_ROWS;
     if (pressed(sc, P + 'D')) r = (r + 1) % SEL_ROWS;
     sel.cur[i] = r * SEL_COLS + c;
-    if (!joined[i] && pressed(sc, P + '1')) sel.conf[i] = true;
+    if (sel.cur[i] !== was) sfx(sc, 'blip');
+    if (!joined[i] && pressed(sc, P + '1')) { sel.conf[i] = true; sfx(sc, 'ok'); }
   }
   var nh = (sc.hum[0] ? 1 : 0) + (sc.hum[1] ? 1 : 0), left = 5 - (sc.t - sel.t0);
   var o = sc.hum[0] ? 1 : 0;
-  if (nh === 1 && left <= 0 && !sc.cpu[o]) {
-    sc.cpu[o] = true;
-    sel.cur[o] = mRand() * FACES.length | 0;
-    sel.conf[o] = true;
-  }
+  if (nh === 1 && !sc.cpu[o] && (left <= 0 || sel.conf[1 - o] && pressed(sc, 'START' + (2 - o)))) { sc.cpu[o] = true; sel.rl = { t: 0, k: 0, n: 0, o: o }; }
+  cpuRoll(sc, dt);
   sc.curG.clear();
   for (i = 0; i < 2; i++) {
     if (!sc.hum[i] && !sc.cpu[i]) continue;
@@ -1036,7 +1052,7 @@ function selectStep(sc, dt) {
     sc.nm[i].setText(sc.hum[i] || sc.cpu[i] ? FACES[sel.cur[i]].name : '');
     sc.stat[i].setText('P' + (i + 1) + ': ' + (sc.cpu[i] ? 'CPU' : !sc.hum[i] ? 'PRESIONA START' : sel.conf[i] ? '¡LISTO!' : 'ELIGE CON A'));
   }
-  sc.cdTxt.setText(nh === 1 && !sc.cpu[o] ? 'LA CPU ENTRA EN ' + mMax(0, mCeil(left)) : '');
+  sc.cdTxt.setText(nh === 1 && !sc.cpu[o] ? 'LA CPU ENTRA EN ' + mMax(0, mCeil(left)) + (sel.conf[1 - o] ? ' · START: YA' : '') : '');
   if ((sc.hum[0] || sc.cpu[0]) && (sc.hum[1] || sc.cpu[1]) && sel.conf[0] && sel.conf[1]) {
     sc.faces = [sel.cur[0], sel.cur[1]];
     setPhase(sc, 'count');
