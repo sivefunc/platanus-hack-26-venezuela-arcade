@@ -91,7 +91,7 @@ Object.keys(ASSETS).forEach(function (k) { ASSETS[k] = ASSETS[k].replace(/~/g, '
 
 // SIM
 var T = {
-  move: 130, chargeMove: 0.5, cd: 2.5, cdRacha: 1.2, ball: 180, chargeMul: 1.6,
+  move: 130, chargeMove: 0.5, rachaSpeed: 1.3, ball: 180, chargeMul: 1.6,
   chargeScale: 1.4, chargeMax: 1, curve: 80, dashSpeed: 280, dashTime: 0.16,
   dashInv: 0.25, dashCd: 1, puddleDash: 1.3, puddleLife: 5, puddleR: 12, slide: 4,
   stun: 0.3, throwShow: 0.3, inv: 1, hitX: 15, hitY: 12, clash: 12, match: 60,
@@ -119,7 +119,7 @@ function proj(x, y) {
 function newPlayer(side) {
   return {
     side: side, x: side ? COURT.x + COURT.w - 40 : COURT.x + 40, y: COURT.y + COURT.h / 2,
-    vx: 0, vy: 0, cd: 0, throwT: 0, charging: false, charge: 0, dashT: 0, dashCd: 0, dashX: 0, dashY: 0, dashMul: 1,
+    vx: 0, vy: 0, throwT: 0, charging: false, charge: 0, dashT: 0, dashCd: 0, dashX: 0, dashY: 0, dashMul: 1,
     inv: 0, stun: 0, streak: 0, score: 0, pa: false, pb: false,
   };
 }
@@ -139,6 +139,12 @@ function headView(p, inp) {
   if (inp.x) return { v: 'side', flip: inp.x < 0 };
   if (inp.y < 0) return { v: 'back', flip: rival };
   return { v: 'front', flip: rival };
+}
+
+// Sin cooldown: puedes lanzar de nuevo cuando tu globo anterior revienta (pared, rival o choque). Un solo globo propio en el aire.
+function ready(s, p) {
+  for (var i = 0; i < s.balls.length; i++) if (s.balls[i].o === p.side) return false;
+  return true;
 }
 
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -180,7 +186,6 @@ function onPuddle(s, p) {
 }
 
 function stepPlayer(s, p, inp, dt) {
-  p.cd = Math.max(0, p.cd - dt);
   p.throwT = Math.max(0, p.throwT - dt);
   p.dashCd = Math.max(0, p.dashCd - dt);
   p.inv = Math.max(0, p.inv - dt);
@@ -203,10 +208,11 @@ function stepPlayer(s, p, inp, dt) {
     p.charge = 0;
     s.ev.push({ k: 'dash', p: p.side });
   }
-  if (aEdge && p.cd <= 0 && p.dashT <= 0) { p.charging = true; p.charge = 0; }
+  if (aEdge && ready(s, p) && p.dashT <= 0) { p.charging = true; p.charge = 0; }
   if (p.charging) {
     if (inp.a) p.charge = Math.min(T.chargeMax, p.charge + dt);
-    else throwBalloon(s, p, inp.y);
+    else if (ready(s, p)) throwBalloon(s, p, inp.y);
+    else { p.charging = false; p.charge = 0; }
   }
   if (p.dashT > 0) {
     var st = Math.min(dt, p.dashT), ds = T.dashSpeed * p.dashMul;
@@ -228,10 +234,9 @@ function stepPlayer(s, p, inp, dt) {
 function throwBalloon(s, p, iy) {
   var dir = p.side ? -1 : 1, c = p.charge / T.chargeMax, big = p.charge >= T.chargeMax;
   s.balls.push({
-    o: p.side, x: p.x + dir * 12, y: p.y, vx: dir * T.ball * (1 + (T.chargeMul - 1) * c),
+    o: p.side, x: p.x + dir * 12, y: p.y, vx: dir * T.ball * (1 + (T.chargeMul - 1) * c) * (p.streak >= 2 ? T.rachaSpeed : 1),
     vy: 0, ay: Math.sign(iy) * T.curve, big: big,
   });
-  p.cd = p.streak >= 2 ? T.cdRacha : T.cd;
   p.throwT = T.throwShow;
   p.charging = false;
   p.charge = 0;
@@ -329,7 +334,7 @@ function cpuThink(s, side, mem, dt) {
   }
 
   // attack
-  if (me.cd > 0 || me.stun > 0) { if (mem.phase !== 'wait') { mem.phase = 'wait'; mem.wait = rnd(CPUT.waitMin, CPUT.waitMax); } return out; }
+  if (!ready(s, me) || me.stun > 0) { if (mem.phase !== 'wait') { mem.phase = 'wait'; mem.wait = rnd(CPUT.waitMin, CPUT.waitMax); } return out; }
   if (mem.phase === 'wait') {
     mem.wait -= dt;
     if (mem.wait > 0) return out;
@@ -807,10 +812,10 @@ function render(sc, dt) {
     var p = s.p[i], b = sc.body[i], h = sc.face[i], pr = proj(p.x, p.y);
     var X = res ? RES[i][0] : pr.x, Y = res ? RES[i][1] : pr.y, S = res ? RES[i][2] : pr.s * PSCALE;
     if (sc.showAct) g.fillStyle(0x000000, 0.4).fillEllipse(X, Y, 62 * S, 18 * S);
-    if (p.cd > 0 && sc.phase === 'play') {
-      var fr = 1 - p.cd / (p.streak >= 2 ? T.cdRacha : T.cd);
-      g.lineStyle(3, 0xffee58, 0.9);
-      ellArc(g, X, Y, 34 * S, 11 * S, -1.5708, -1.5708 + 6.2832 * fr);
+    if (ready(s, p) && sc.phase === 'play') {
+      // anillo de "listo": lleno del color del jugador mientras puede lanzar, apagado mientras su globo vuela
+      g.lineStyle(3, i ? 0xff4d4d : 0x4d8dff, 0.9);
+      ellArc(g, X, Y, 34 * S, 11 * S, -1.5708, -1.5708 + 6.2832);
     }
     if (p.charging && sc.phase === 'play') g.lineStyle(2, p.charge >= T.chargeMax && (sc.t * 16 | 0) % 2 ? 0xffee58 : 0xffffff, 0.9).strokeEllipse(X, Y - 38 * S, (30 + 50 * p.charge) * S, (30 + 50 * p.charge) * S);
     var fi = bodyFrame(sc, s, i, p);
