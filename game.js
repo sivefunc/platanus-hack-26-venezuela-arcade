@@ -1066,11 +1066,11 @@ function selectStep(sc, dt) {
     sc.stat[i].setText('P' + (i + 1) + ' · ' + (sc.cpu[i] ? 'CPU' : !sc.hum[i] ? 'LIBRE' : sel.conf[i] ? '¡LISTO!' : 'ELIGIENDO'));
     sc.hl[i].setText(sc.cpu[i] ? 'START: ENTRA UN JUGADOR' : !sc.hum[i] ? 'START: JUGAR' : sel.conf[i] ? 'B2: CAMBIAR' : 'B1 ELEGIR · B2 SALIR');
   }
-  // con los dos listos espera 1.2 s ("¡A JUGAR!") antes de la cuenta: da tiempo a reemplazar a la CPU
+  // con los dos listos espera 0.8 s ("¡A JUGAR!") antes de la cuenta: da tiempo a reemplazar a la CPU
   var all = (sc.hum[0] || sc.cpu[0]) && (sc.hum[1] || sc.cpu[1]) && sel.conf[0] && sel.conf[1];
   sel.go = all ? (sel.go || 0) + dt : 0;
   sc.cdTxt.setText(all ? '¡A JUGAR!' : nh === 1 && !sc.cpu[o] ? 'LA CPU ENTRA EN ' + mMax(0, mCeil(left)) + (sel.conf[1 - o] ? ' · START: YA' : '') : '');
-  if (sel.go > 1.2) {
+  if (sel.go > 0.8) {
     sc.faces = [sel.cur[0], sel.cur[1]];
     setPhase(sc, 'count');
   }
