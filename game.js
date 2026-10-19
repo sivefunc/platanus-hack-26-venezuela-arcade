@@ -1062,7 +1062,11 @@ function selectStep(sc, dt) {
 function pauseNext(sc) { return anyPressed(sc, ['START1', 'START2']) ? 'play' : anyPressed(sc, ['P1_2', 'P2_2']) ? 'title' : null; }
 
 // linea de controles al pie (seleccion y pausa)
-function hint(sc) { utx(sc, CX, 574, 'B1: CARGA Y LANZA · ARRIBA/ABAJO AL SOLTAR: CURVA · B2 + DIRECCIÓN: DASH', 13); }
+// Linea de controles al pie, sobre una placa oscura (como los paneles del titulo) para que se lea sobre el zinc
+function hint(sc) {
+  var t = utx(sc, CX, 574, 'B1: CARGA Y LANZA · ARRIBA/ABAJO AL SOLTAR: CURVA · B2 + DIRECCIÓN: DASH', 13);
+  F(ui(sc, gfx(sc).setDepth(2999)), 0x000000, 0.7).fillRoundedRect(CX - t.width / 2 - 12, 561, t.width + 24, 26, 8);
+}
 
 function pauseOn(sc) {
   sc.phase = 'pause';
