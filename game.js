@@ -1049,7 +1049,7 @@ function selectStep(sc, dt) {
   }
   for (i = 0; i < 2; i++) {
     sc.nm[i].setText(sc.hum[i] || sc.cpu[i] ? FACES[sel.cur[i]].name : '');
-    sc.stat[i].setText('P' + (i + 1) + ': ' + (sc.cpu[i] ? 'CPU' : !sc.hum[i] ? 'PRESIONA START' : sel.conf[i] ? '¡LISTO!' : 'ELIGE CON A'));
+    sc.stat[i].setText('P' + (i + 1) + ': ' + (sc.cpu[i] ? 'CPU' : !sc.hum[i] ? 'PRESIONA START' : sel.conf[i] ? '¡LISTO!' : 'ELIGE CON B1'));
   }
   sc.cdTxt.setText(nh === 1 && !sc.cpu[o] ? 'LA CPU ENTRA EN ' + mMax(0, mCeil(left)) + (sel.conf[1 - o] ? ' · START: YA' : '') : '');
   if ((sc.hum[0] || sc.cpu[0]) && (sc.hum[1] || sc.cpu[1]) && sel.conf[0] && sel.conf[1]) {
@@ -1062,7 +1062,7 @@ function selectStep(sc, dt) {
 function pauseNext(sc) { return anyPressed(sc, ['START1', 'START2']) ? 'play' : anyPressed(sc, ['P1_2', 'P2_2']) ? 'title' : null; }
 
 // linea de controles al pie (seleccion y pausa)
-function hint(sc) { utx(sc, CX, 574, 'A: CARGA Y LANZA · ARRIBA/ABAJO AL SOLTAR: CURVA · B + DIRECCIÓN: DASH', 13); }
+function hint(sc) { utx(sc, CX, 574, 'B1: CARGA Y LANZA · ARRIBA/ABAJO AL SOLTAR: CURVA · B2 + DIRECCIÓN: DASH', 13); }
 
 function pauseOn(sc) {
   sc.phase = 'pause';
@@ -1070,7 +1070,7 @@ function pauseOn(sc) {
   sfx(sc, 'pause');
   F(ui(sc, gfx(sc).setDepth(2500)), 0, 0.6).fillRect(0, 0, GW, GH);
   utx(sc, CX, 250, 'PAUSA', 80, '#ffd23f');
-  utx(sc, CX, 320, 'START: SEGUIR · B: SALIR', 22);
+  utx(sc, CX, 320, 'START: SEGUIR · B2: SALIR', 22);
   hint(sc);
 }
 
