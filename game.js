@@ -914,6 +914,7 @@ function resetView(sc) {
   sc.wetT = [0, 0];
   sc.s = newMatch();
   sc.mem = [{}, {}];
+  sc.refT = 0;
 }
 
 function pressed(sc, c) { return !!sc.edge[c]; }
@@ -933,6 +934,10 @@ function setPhase(sc, ph) {
 function buildTitle(sc) {
   clearUi(sc);
   resetView(sc);
+  // como recien encendido: publico quieto y la musica del titulo desde el compas 1
+  if (sc.crowdTw) sc.crowdTw.stop();
+  sc.crowd.setY(0);
+  AU.step = 0;
   showActors(sc, false);
   sc.hum = [false, false];
   sc.cpuSide = [false, false];
@@ -1068,6 +1073,9 @@ function buildResult(sc) {
   if (!sc.cpuSide[w]) { sc.wins = addWin(sc.wins, FACES[sc.faces[w]].id); saveWins(sc.wins); }
 }
 
+// El resultado dura 6 s, sin aceptar entradas, y vuelve solo al titulo
+function resultNext(sc) { return sc.pt >= 6 ? 'title' : null; }
+
 function resultStep(sc, dt) {
   crowdJump(sc);
   if (sc.pt < 1) {
@@ -1075,10 +1083,8 @@ function resultStep(sc, dt) {
     for (var k = 0; k < 2; k++) sc.fx.push({ x: wl[0] + rnd(-90, 90), y: wl[1] - rnd(150, 260), vx: rnd(-20, 20), vy: rnd(0, 60), life: rnd(0.5, 0.9), c: Math.random() < 0.7 ? 0x8fd3ff : 0xffffff });
     if (Math.random() < 0.15) splash(sc, wl[0] + rnd(-80, 80), wl[1] - rnd(0, 40), 8, false);
   }
-  if (sc.pt < 1) return;
-  if (anyPressed(sc, ['START1', 'START2', 'P1_1', 'P2_1'])) { setPhase(sc, 'count'); return; }
-  if (Object.keys(sc.edge).length) sc.pt = 1;
-  if (sc.pt >= 11) setPhase(sc, 'title');
+  var nx = resultNext(sc);
+  if (nx) setPhase(sc, nx);
 }
 
 function titleStep(sc, dt) {
