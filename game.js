@@ -1125,6 +1125,8 @@ function buildResult(sc) {
     var t = ui(sc, txt(sc, L[k][0], L[k][1] + 27, FACES[sc.faces[k]].name, 20, k ? '#ff8f8f' : '#8fb6ff', 3002)), pw = t.width + 24;
     ui(sc, gfx(sc).setDepth(3001)).fillStyle(0x0d1030, 0.92).fillRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5).lineStyle(3, k ? 0xff4d4d : 0x4d8dff, 1).strokeRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5);
   }
+  // cuenta regresiva bajo las placas de nombre (resultStep la actualiza)
+  sc.backTxt = utx(sc, CX, 545, '', 18);
   sfx(sc, 'racha'); sfx(sc, 'splash');
   splash(sc, L[w][0], L[w][1], 40, true);
   if (!sc.cpu[w]) { sc.wins = addWin(sc.wins, FACES[sc.faces[w]].id); saveWins(sc.wins); }
@@ -1140,6 +1142,7 @@ function resultStep(sc, dt) {
     for (var k = 0; k < 2; k++) sc.fx.push({ x: wl[0] + rnd(-90, 90), y: wl[1] - rnd(150, 260), vx: rnd(-20, 20), vy: rnd(0, 60), life: rnd(0.5, 0.9), c: mRand() < 0.7 ? 0x8fd3ff : 0xffffff });
     if (mRand() < 0.15) splash(sc, wl[0] + rnd(-80, 80), wl[1] - rnd(0, 40), 8, false);
   }
+  sc.backTxt.setText('VOLVIENDO AL INICIO EN ' + mMax(1, mCeil(6 - sc.pt)) + ' S');
   var nx = resultNext(sc);
   if (nx) setPhase(sc, nx);
 }
