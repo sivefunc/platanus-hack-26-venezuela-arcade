@@ -683,9 +683,9 @@ function buildStatic(sc) {
   // los vecinos son los de la original: un recorte del mismo ambiente que salta entero (3 px) cuando hay un impacto o una racha
   sc.crowd = sc.add.image(0, 0, 'ambient').setOrigin(0).setCrop(40, 100, 750, 73).setDepth(1);
   paintSponsors(sc);
-  // un solo tanque, en la esquina de atras de la zona amarilla izquierda (donde estaba en la original), con el tobo de P1 bajo la llave
-  sc.add.image(2, 290, 'tank').setOrigin(0, 1).setDepth(290);
-  sc.add.image(70, 303, 'bucket').setOrigin(0.5, 1).setScale(0.8).setDepth(303);
+  // un solo tanque, apoyado en la esquina de atras-izquierda sobre el muro del fondo y el lateral (fuera de la cancha), con el tobo de P1 bajo la llave; detras de los jugadores
+  sc.add.image(7, 255, 'tank').setOrigin(0, 1).setScale(0.85).setDepth(2);
+  sc.add.image(80, 266, 'bucket').setOrigin(0.5, 1).setScale(0.8).setDepth(2);
   // tobo de P2 en la esquina de atras de la zona amarilla derecha
   sc.add.image(771, 265, 'bucket2').setOrigin(0.5, 1).setScale(0.8).setDepth(265);
   sc.refBucket = sc.add.image(452, 526, 'bucket').setOrigin(0.5, 1).setDepth(526);
