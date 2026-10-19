@@ -750,15 +750,16 @@ function buildHud(sc) {
   sc.hudObjs = [g, sc.hud.p1, sc.hud.p2, sc.hud.s1, sc.hud.s2, sc.hud.tm, sc.hud.tl, sc.hud.n1, sc.hud.n2];
 }
 
-// Cuadro de la skin (todos de lado, mirando a la derecha): 0 quieto, 1 correr, 2 lanzar, 3 busto de frente (solo pantallas).
+// Cuadro de la skin: 0 quieto, 1 y 2 correr, 3 lanzar (de lado, mirando a la derecha), 4 de frente (celebrar, ganar, pantallas).
 // Los cuadros de accion miran al rival: P1 sin flip, P2 con flip. El resto de la animacion sale de poseFx.
 function skinFrame(sc, s, i, p, fl) {
   var rival = i === 1, mv = mAbs(p.vx) + mAbs(p.vy) > 8;
-  if (sc.phase === 'result') return { f: 0, flip: s.winner !== i };
-  if (p.stun > 0 || p.chg || sc.celT[i] > 0) return { f: 0, flip: rival };
+  if (sc.phase === 'result') return { f: s.winner === i ? 4 : 0, flip: s.winner !== i };
+  if (p.stun > 0 || p.chg) return { f: 0, flip: rival };
   if (p.dashT > 0) return { f: 1, flip: rival };
-  if (sc.throwT[i] > 0) return { f: 2, flip: rival };
-  return { f: mv ? (sc.t * 8 | 0) % 2 : 0, flip: fl };
+  if (sc.throwT[i] > 0) return { f: 3, flip: rival };
+  if (sc.celT[i] > 0) return { f: 4, flip: false };
+  return { f: mv ? 1 + (sc.t * 8 | 0) % 2 : 0, flip: fl };
 }
 
 // Animacion por codigo: respira en reposo (sy 1 a 1.03, ~1.1 Hz, P2 desfasado), rebota al moverse,
@@ -818,7 +819,7 @@ function render(sc, dt) {
     var fxp = poseFx(sc, i, p, S);
     b.setFrame(sk.f).setFlipX(flip).setScale(S * 4.5 * fxp.sx, S * 4.5 * fxp.sy).setRotation(flip ? -fxp.rot : fxp.rot).setPosition(mRound(X + fxp.dx), mRound(Y + fxp.dy)).setDepth(res ? 2600 : Y);
     sc.tag[i].setPosition(mRound(X), mRound(Y - (SKH - 4) * S - 8)).setDepth(res ? 2601 : Y + 0.3).setVisible(sc.showAct && !res);
-    var hd = sc.showAct && !res && (p.chg ? [-30, -95, 0.7 + 0.5 * p.charge / T.chargeMax] : sk.f === 2 && sc.throwT[i] > 0.2 ? [-40, -90, 0.7] : null);
+    var hd = sc.showAct && !res && (p.chg ? [-30, -95, 0.7 + 0.5 * p.charge / T.chargeMax] : sk.f === 3 && sc.throwT[i] > 0.2 ? [-40, -90, 0.7] : null);
     sc.hb[i].setVisible(!!hd);
     if (hd) sc.hb[i].setScale(S * hd[2] * 3.5).setPosition(mRound(X + (flip ? -hd[0] : hd[0]) * S), mRound(Y + hd[1] * S)).setDepth(Y + 0.2).setAlpha(sc.wetT[i] > 0 ? 0 : 1);
     var drip = res && s.winner !== i, wet = sc.wetT[i] > 0 || drip, blink = sc.wetT[i] > 0 && (sc.t * 14 | 0) % 2;
@@ -966,9 +967,9 @@ function buildTitle(sc) {
   showActors(sc, false);
   sc.hum = [false, false];
   sc.cpu = [false, false];
-  ui(sc, sc.add.text(CX, 130, '¡MOJAO!', { fontFamily: FONT, fontStyle: 'bold', fontSize: '80px', color: '#8fd3ff', stroke: '#0d1030', strokeThickness: 12 }).setOrigin(0.5).setShadow(0, 6, '#000000', 0, true, true).setDepth(3000));
-  utx(sc, CX, 200, 'PLATANUS HACK 26 · CARACAS', 16, '#ffffff');
-  sc.pressTxt = utx(sc, CX, 268, 'PRESIONA START', 30, '#ffffff');
+  ui(sc, sc.add.image(CX, 126, 'logo').setScale(3.5).setDepth(3000));
+  utx(sc, CX, 252, 'PLATANUS HACK 26 · CARACAS', 16, '#ffffff');
+  sc.pressTxt = utx(sc, CX, 286, 'PRESIONA START', 30, '#ffffff');
   var g = ui(sc, gfx(sc).setDepth(2999));
   F(g, 0x000000, 0.6).fillRoundedRect(CX - 260, 318, 520, 190, 10);
   utx(sc, CX, 342, 'RANKING DE VICTORIAS', 20, '#ffd23f');
@@ -976,7 +977,7 @@ function buildTitle(sc) {
   if (!top.length) utx(sc, CX, 428, '¡SÉ EL PRIMERO EN GANAR!', 22, '#ffffff');
   top.forEach(function (e, i) {
     var x = CX + (i - (top.length - 1) / 2) * 100, f = faceById(e[0]);
-    ui(sc, sc.add.image(x, 424, f.key, 3).setScale(1.6).setDepth(3000));
+    ui(sc, sc.add.image(x, 452, f.key, 4).setOrigin(0.5, 1).setScale(3).setDepth(3000));
     utx(sc, x, 462, f.name, 13, '#ffffff');
     utx(sc, x, 488, 'x' + e[1], 22, '#ffd23f');
   });
@@ -994,7 +995,7 @@ function buildSelect(sc) {
   FACES.forEach(function (f, i) {
     var c = selPos(i);
     F(g, 0x2a2f4d, 0.9).fillRoundedRect(c[0] - SEL_W, c[1] - SEL_H, SEL_W * 2, SEL_H * 2, 6);
-    ui(sc, sc.add.image(c[0], c[1] + 38, f.key, 0).setOrigin(0.5, 1).setScale(1.35).setDepth(3000));
+    ui(sc, sc.add.image(c[0], c[1] + 38, f.key, 4).setOrigin(0.5, 1).setScale(3).setDepth(3000));
     utx(sc, c[0], c[1] + 52, f.name, 11, '#ffffff');
   });
   sc.curG = ui(sc, gfx(sc).setDepth(3001));
