@@ -551,7 +551,7 @@ var SKH = 144; // cuadro de una skin; el personaje mide ~136 px de alto con los 
 var PSCALE = 1.42; // jugadores (skin, sombra, anillos) respecto de la escala de perspectiva de PROJ: ~135 px adelante, ~110 atras
 var BSCALE = 1.6; // globos en vuelo (sprite, sombra, estela)
 // pantalla de resultado: manda quien gano, no el lado. Los pies a y=462 dejan la placa (y+14 a y+40) por encima del muro del frente y del zinc
-var RES_WIN = [270, 462, 1.35], RES_LOSE = [560, 462, 1.1];
+var RES_WIN = [270, 462, 1.05], RES_LOSE = [560, 462, 0.9];
 function resLayout(w) { return w === 0 ? [RES_WIN, RES_LOSE] : [RES_LOSE, RES_WIN]; }
 
 // Decodifica el texto de 92 simbolos (13 bits por par) a un string binario de n bytes.
@@ -1118,9 +1118,9 @@ function buildResult(sc) {
   sc.rings = [];
   sc.ref.setVisible(false); sc.refBucket.setVisible(false);
   F(g, 0x000000, 0.6).fillRect(0, 0, GW, GH);
-  utx(sc, CX, 215, T0.title, 44, T0.color);
-  if (T0.sub) utx(sc, CX, 248, T0.sub, 16);
-  utx(sc, CX, 284, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 50);
+  utx(sc, CX, 200, T0.title, 44, T0.color);
+  if (T0.sub) utx(sc, CX, 230, T0.sub, 16);
+  utx(sc, CX, 262, ('0' + s.p[0].score).slice(-2) + ' - ' + ('0' + s.p[1].score).slice(-2), 50);
   for (var k = 0; k < 2; k++) {
     var t = ui(sc, txt(sc, L[k][0], L[k][1] + 27, FACES[sc.faces[k]].name, 20, k ? '#ff8f8f' : '#8fb6ff', 3002)), pw = t.width + 24;
     ui(sc, gfx(sc).setDepth(3001)).fillStyle(0x0d1030, 0.92).fillRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5).lineStyle(3, k ? 0xff4d4d : 0x4d8dff, 1).strokeRoundedRect(L[k][0] - pw / 2, L[k][1] + 14, pw, 26, 5);
